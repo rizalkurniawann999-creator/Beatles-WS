@@ -1,1 +1,440 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beatles-WS | Professional WhatsApp Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        beatles: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            bronze: '#c29b61'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .video-bg {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            z-index: -1;
+            object-fit: cover;
+            opacity: 0.25;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.78);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+        .glow-focus:focus {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-beatles-900 text-slate-300 font-sans antialiased overflow-x-hidden">
 
+    <!-- CONSOLE / LANDING PAGE (DENGAN LOGO PERUSAHAAN & VIDEO 2 / "Beatles-WS") -->
+    <div id="view-console" class="relative min-h-screen flex flex-col items-center justify-center p-4">
+        <video autoplay loop muted playsinline class="video-bg">
+            <source src="assets/video_2.mp4" type="video/mp4">
+        </video>
+        <div class="z-10 text-center glass-panel p-10 md:p-14 rounded-3xl shadow-2xl border border-beatles-cyan/30 transform transition duration-500 hover:scale-105 max-w-lg w-full">
+            <!-- Logo Perusahaan -->
+            <div class="flex justify-center mb-6">
+                <img src="assets/logo.png" alt="Beatles-WS Logo" class="w-32 h-32 md:w-36 md:h-36 object-cover rounded-2xl shadow-[0_0_25px_rgba(6,182,212,0.4)] border-2 border-beatles-cyan/50">
+            </div>
+            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-widest drop-shadow-lg">BEATLES-<span class="text-beatles-cyan">WS</span></h1>
+            <p class="text-xs md:text-sm text-beatles-bronze uppercase tracking-widest font-semibold mb-4">Global Platform Solutions</p>
+            <p class="text-sm md:text-base text-slate-300 mb-8 font-light tracking-wide leading-relaxed">Kelola automasi dan pesan WhatsApp Anda dengan mudah, aman, dan profesional.</p>
+            <button onclick="showAuth()" class="w-full bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 font-bold py-3.5 px-8 rounded-xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.6)] hover:shadow-[0_0_30px_rgba(6,182,212,0.9)] tracking-wide">
+                Masuk ke Dashboard <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- AUTHENTICATION PAGE (LOGIN / REGISTER DENGAN VIDEO 1) -->
+    <div id="view-auth" class="hidden relative min-h-screen flex items-center justify-center p-4">
+        <video autoplay loop muted playsinline class="video-bg opacity-30">
+            <source src="assets/video_1.mp4" type="video/mp4">
+        </video>
+        
+        <div class="z-10 w-full max-w-md glass-panel p-8 rounded-2xl shadow-2xl border-t border-beatles-cyan/50">
+            <div class="flex justify-center mb-4">
+                <img src="assets/logo.png" alt="Logo" class="w-16 h-16 object-cover rounded-xl border border-beatles-cyan/40 shadow-md">
+            </div>
+            
+            <!-- Lang Toggle -->
+            <div class="flex justify-end mb-2 text-xs">
+                <select class="bg-beatles-800 border border-slate-600 rounded px-2 py-1 text-slate-300 outline-none hover:border-beatles-cyan transition">
+                    <option>🇮🇩 ID</option>
+                    <option>🇬🇧 EN</option>
+                    <option>🇨🇳 CN</option>
+                </select>
+            </div>
+
+            <!-- Login Form -->
+            <div id="form-login">
+                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Selamat Datang!</h2>
+                <p class="text-center text-xs text-slate-400 mb-6">Sistem Terenkripsi & Aman</p>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
+                        <div class="relative">
+                            <i class="fas fa-user absolute left-3 top-3.5 text-slate-500"></i>
+                            <input type="text" id="login-username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan username">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-3.5 text-slate-500"></i>
+                            <input type="password" id="login-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan kata sandi">
+                        </div>
+                    </div>
+                    <button onclick="dummyLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
+                        Masuk Sekarang
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">Belum punya akun? <a href="#" onclick="toggleAuth('register')" class="text-beatles-cyan font-semibold hover:underline">Daftar di sini</a></p>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="form-register" class="hidden">
+                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Buat Akun Baru</h2>
+                <p class="text-center text-xs text-slate-400 mb-6">Bergabung dengan ekosistem Beatles-WS</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Lengkap</label>
+                        <input type="text" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
+                        <input type="text" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
+                        <input type="password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                    </div>
+                    <button onclick="toggleAuth('login')" class="w-full bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] mt-4">
+                        Daftar & Lanjut Login
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">Sudah punya akun? <a href="#" onclick="toggleAuth('login')" class="text-beatles-emerald font-semibold hover:underline">Masuk</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD WRAPPER -->
+    <div id="view-dashboard" class="hidden min-h-screen bg-beatles-900 flex">
+        <!-- SIDEBAR -->
+        <aside class="w-64 glass-panel border-r border-slate-700 flex flex-col hidden md:flex">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-center flex-col">
+                <div class="flex items-center space-x-2 mb-2">
+                    <img src="assets/logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-cover">
+                    <h2 class="text-xl font-black text-white tracking-widest drop-shadow-md">BEATLES-<span class="text-beatles-cyan">WS</span></h2>
+                </div>
+                <div class="mt-2 py-1 px-3 bg-slate-800 rounded-full border border-slate-600">
+                    <p id="user-role-display" class="text-[10px] text-beatles-emerald uppercase font-bold tracking-widest"></p>
+                </div>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto" id="sidebar-nav">
+                <!-- Nav items injected via JS -->
+            </nav>
+
+            <div class="p-4 border-t border-slate-700">
+                <button onclick="logout()" class="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2.5 rounded-lg transition-all font-semibold">
+                    <i class="fas fa-sign-out-alt"></i> <span>Keluar</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col h-screen overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-800 via-beatles-900 to-beatles-900">
+            <header class="glass-panel border-b border-slate-700 p-4 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <button class="md:hidden text-slate-300 hover:text-white"><i class="fas fa-bars text-xl"></i></button>
+                    <h3 class="text-xl font-bold text-white tracking-wide" id="page-title">Dashboard Utama</h3>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-sm text-white font-semibold" id="top-username">User</p>
+                        <p class="text-xs text-beatles-cyan">Online</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-slate-800 border-2 border-beatles-cyan flex items-center justify-center text-white shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+                        <i class="fas fa-user-astronaut"></i>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-6 md:p-8" id="dashboard-content">
+                <!-- Content injected here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function showAuth() {
+            document.getElementById('view-console').classList.add('hidden');
+            document.getElementById('view-auth').classList.remove('hidden');
+        }
+
+        function toggleAuth(type) {
+            if(type === 'register') {
+                document.getElementById('form-login').classList.add('hidden');
+                document.getElementById('form-register').classList.remove('hidden');
+            } else {
+                document.getElementById('form-register').classList.add('hidden');
+                document.getElementById('form-login').classList.remove('hidden');
+            }
+        }
+
+        function dummyLogin() {
+            const user = document.getElementById('login-username').value.toLowerCase() || 'user_demo';
+            let role = 'user';
+            
+            if(user === 'admin') role = 'admin';
+            if(user === 'bos') role = 'bos';
+
+            document.getElementById('view-auth').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+            document.getElementById('user-role-display').innerText = `Akses: ${role}`;
+            document.getElementById('top-username').innerText = user.toUpperCase();
+            
+            buildSidebar(role);
+            loadContent(role, 'dashboard');
+        }
+
+        function logout() {
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-console').classList.remove('hidden');
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+        }
+
+        function buildSidebar(role) {
+            const nav = document.getElementById('sidebar-nav');
+            let items = [];
+
+            if(role === 'user') {
+                items = [
+                    { id: 'dashboard', icon: 'fa-chart-pie', label: 'Dashboard' },
+                    { id: 'wa-sender', icon: 'fa-whatsapp', label: 'WhatsApp Pengirim' },
+                    { id: 'broadcast', icon: 'fa-paper-plane', label: 'Kendali Massal' },
+                    { id: 'afiliasi', icon: 'fa-users', label: 'Afiliasi Referral' },
+                    { id: 'tarik', icon: 'fa-wallet', label: 'Tarik Saldo' }
+                ];
+            } else if(role === 'admin') {
+                items = [
+                    { id: 'dashboard', icon: 'fa-server', label: 'Monitoring Server' },
+                    { id: 'manajemen-user', icon: 'fa-user-cog', label: 'Manajemen User' },
+                    { id: 'manajemen-db', icon: 'fa-database', label: 'Manajemen Database' },
+                    { id: 'persetujuan', icon: 'fa-check-circle', label: 'Persetujuan Withdraw' }
+                ];
+            } else if(role === 'bos') {
+                items = [
+                    { id: 'dashboard', icon: 'fa-chart-line', label: 'Executive Analytics' },
+                    { id: 'aruskas', icon: 'fa-money-bill-wave', label: 'Laporan Arus Kas' },
+                    { id: 'audit', icon: 'fa-history', label: 'Audit Log Admin' },
+                    { id: 'darurat', icon: 'fa-exclamation-triangle', label: 'Sistem Darurat' }
+                ];
+            }
+
+            nav.innerHTML = items.map(item => `
+                <button onclick="loadContent('${role}', '${item.id}')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/80 hover:text-beatles-cyan hover:shadow-[inset_4px_0_0_rgba(6,182,212,1)] transition-all text-left">
+                    <i class="fas ${item.icon} w-5 text-center text-lg"></i>
+                    <span class="font-medium tracking-wide">${item.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function loadContent(role, page) {
+            const content = document.getElementById('dashboard-content');
+            const title = document.getElementById('page-title');
+
+            if(page === 'dashboard' && role === 'user') {
+                title.innerText = 'Dashboard Area';
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-beatles-emerald shadow-lg relative overflow-hidden">
+                            <i class="fas fa-wallet absolute -right-4 -bottom-4 text-7xl text-slate-800 opacity-50"></i>
+                            <h4 class="text-sm font-semibold text-slate-400 mb-2 tracking-widest uppercase">Total Saldo</h4>
+                            <p class="text-4xl font-black text-beatles-emerald drop-shadow-md">Rp 0</p>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-blue-500 shadow-lg relative overflow-hidden">
+                            <i class="fas fa-paper-plane absolute -right-4 -bottom-4 text-7xl text-slate-800 opacity-50"></i>
+                            <h4 class="text-sm font-semibold text-slate-400 mb-2 tracking-widest uppercase">Pesan Terkirim</h4>
+                            <p class="text-4xl font-black text-white drop-shadow-md">0 <span class="text-lg font-medium text-slate-500">pesan</span></p>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-beatles-cyan shadow-lg relative overflow-hidden">
+                            <i class="fas fa-bolt absolute -right-4 -bottom-4 text-7xl text-slate-800 opacity-50"></i>
+                            <h4 class="text-sm font-semibold text-slate-400 mb-2 tracking-widest uppercase">Sisa Kuota</h4>
+                            <p class="text-4xl font-black text-beatles-cyan drop-shadow-md">1.000</p>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                        <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-bullhorn text-beatles-cyan mr-2"></i> Pengumuman Sistem</h4>
+                        <div class="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 rounded-r-lg text-yellow-200 text-sm">
+                            <span class="font-bold">Perhatian!</span> Dilarang keras mengirimkan konten judi online atau penipuan. Sistem akan otomatis memblokir nomor yang terdeteksi spam.
+                        </div>
+                    </div>
+                `;
+            } else if(page === 'wa-sender') {
+                title.innerText = 'WhatsApp Pengirim';
+                content.innerHTML = `
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700 mb-6 flex justify-between items-center shadow-lg">
+                        <div>
+                            <h4 class="text-xl font-black text-white mb-1">Perangkat Taut</h4>
+                            <p class="text-sm text-slate-400">Hubungkan WhatsApp Anda ke server inti Beatles-WS</p>
+                        </div>
+                        <button class="bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 px-5 py-2.5 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                            <i class="fas fa-qrcode mr-2"></i> Scan QR
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl flex justify-between items-center hover:border-beatles-cyan/50 transition-all">
+                            <div class="flex items-center space-x-5">
+                                <div class="w-14 h-14 rounded-xl bg-slate-700 flex items-center justify-center text-3xl shadow-inner">📱</div>
+                                <div>
+                                    <h5 class="text-lg text-white font-bold tracking-wider">+62 812-3456-7890</h5>
+                                    <p class="text-xs text-beatles-emerald mt-1 font-semibold"><i class="fas fa-circle mr-1 animate-pulse"></i> Connected (Ubuntu Server)</p>
+                                </div>
+                            </div>
+                            <button class="text-slate-500 hover:text-red-500 bg-slate-900 p-3 rounded-lg transition-all" title="Hapus Perangkat">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if(page === 'broadcast') {
+                title.innerText = 'Kendali Massal (Broadcast)';
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="lg:col-span-7 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                            <h4 class="text-xl font-black text-white mb-6 border-b border-slate-700 pb-4"><i class="fas fa-cogs text-beatles-cyan mr-2"></i> Konfigurasi Mesin Blast</h4>
+                            <div class="space-y-5">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Kategori Target</label>
+                                    <select class="w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                                        <option>-- Pilih Database --</option>
+                                        <option>Promo Kemerdekaan (1,200 nomor)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">Kecepatan Pengiriman (Jeda Anti-Ban)</label>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="speed" class="peer sr-only" checked>
+                                            <div class="text-center py-2 px-3 border border-slate-700 rounded-lg text-slate-400 peer-checked:bg-beatles-cyan/20 peer-checked:border-beatles-cyan peer-checked:text-beatles-cyan transition-all">
+                                                <div class="font-bold">30 Detik</div><div class="text-[10px]">Paling Aman</div>
+                                            </div>
+                                        </label>
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="speed" class="peer sr-only">
+                                            <div class="text-center py-2 px-3 border border-slate-700 rounded-lg text-slate-400 peer-checked:bg-yellow-500/20 peer-checked:border-yellow-500 peer-checked:text-yellow-500 transition-all">
+                                                <div class="font-bold">5 Detik</div><div class="text-[10px]">Standar</div>
+                                            </div>
+                                        </label>
+                                        <label class="cursor-pointer">
+                                            <input type="radio" name="speed" class="peer sr-only">
+                                            <div class="text-center py-2 px-3 border border-slate-700 rounded-lg text-slate-400 peer-checked:bg-red-500/20 peer-checked:border-red-500 peer-checked:text-red-500 transition-all">
+                                                <div class="font-bold">1 Detik</div><div class="text-[10px]">Brutal (Beresiko)</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <button class="w-full bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 font-black py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] mt-6 text-lg">
+                                    <i class="fas fa-paper-plane mr-2"></i> EKSEKUSI SEKARANG
+                                </button>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-5 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col">
+                            <h4 class="text-xl font-black text-white mb-6 border-b border-slate-700 pb-4"><i class="fas fa-satellite-dish text-beatles-cyan mr-2"></i> Status Eksekusi</h4>
+                            <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/30 text-slate-500 p-6">
+                                <i class="fas fa-rocket text-4xl mb-3 opacity-30"></i>
+                                <p class="text-sm text-center">Mesin sedang bersiaga.<br>Pilih target dan tekan tombol eksekusi untuk memulai.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if(page === 'manajemen-db' && role === 'admin') {
+                title.innerText = 'Manajemen Database & Template';
+                content.innerHTML = `
+                    <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                            <div>
+                                <h4 class="text-xl font-black text-white">Database Klien & Template</h4>
+                                <p class="text-sm text-slate-400">Atur sumber nomor, harga, dan format pesan blast.</p>
+                            </div>
+                            <button class="bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 px-5 py-2.5 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] whitespace-nowrap">
+                                <i class="fas fa-plus-circle mr-2"></i> Kategori Baru
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto rounded-xl border border-slate-700">
+                            <table class="w-full text-left text-sm text-slate-300">
+                                <thead class="bg-slate-800 text-beatles-cyan text-xs uppercase tracking-wider">
+                                    <tr>
+                                        <th class="p-4 font-bold">Nama Kategori</th>
+                                        <th class="p-4 font-bold">Total Nomor (TXT)</th>
+                                        <th class="p-4 font-bold">Tarif / Pesan</th>
+                                        <th class="p-4 font-bold">Media Template</th>
+                                        <th class="p-4 font-bold text-center">Aksi</th>
+                                    </tr>
+                                    </thead>
+                                <tbody class="divide-y divide-slate-700/50">
+                                    <tr class="hover:bg-slate-800/50 transition-colors">
+                                        <td class="p-4 font-semibold text-white">Promo Akhir Tahun</td>
+                                        <td class="p-4">
+                                            <div class="flex items-center">
+                                                <span class="text-beatles-emerald font-bold mr-2">500</span>
+                                                <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300">Extracted</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-4"><span class="text-yellow-400 font-mono">Rp 150</span></td>
+                                        <td class="p-4">
+                                            <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/30">
+                                                <i class="fas fa-image mr-1"></i> Teks + Foto
+                                            </span>
+                                        </td>
+                                        <td class="p-4 flex justify-center space-x-3">
+                                            <button class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition" title="Upload File .txt">
+                                                <i class="fas fa-file-upload"></i>
+                                            </button>
+                                            <button class="text-slate-400 hover:text-beatles-cyan bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition" title="Edit Template & Media">
+                                                <i class="fas fa-paint-brush"></i>
+                                            </button>
+                                            <button class="text-slate-400 hover:text-red-500 bg-slate-800 hover:bg-slate-700 p-2 rounded-lg transition" title="Hapus DB">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else {
+                title.innerText = document.querySelector(`[onclick="loadContent('${role}', '${page}')"]`)?.innerText.trim() || 'Halaman';
+                content.innerHTML = `<div class="text-slate-500 text-center py-20 flex flex-col items-center">
+                    <i class="fas fa-tools text-5xl mb-4 opacity-20"></i>
+                    <p>Modul <strong class="text-white">${title.innerText}</strong> sedang dalam perakitan UI.</p>
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>
