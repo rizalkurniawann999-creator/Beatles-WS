@@ -18,9 +18,8 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Menyajikan file statis frontend dari folder 'public', 'assets', & folder media 'uploads'
+// Menyajikan file statis frontend dari folder 'public' & folder media 'uploads'
 app.use(express.static(path.join(__dirname, '../public')));
-app.use('/assets', express.static(path.join(__dirname, '../assets')));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health Check Endpoint API
