@@ -105,7 +105,8 @@
                             <input type="password" id="login-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan kata sandi">
                         </div>
                     </div>
-                    <button onclick="dummyLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
+                    <div id="auth-error" class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
+                    <button onclick="submitLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
                         Masuk Sekarang
                     </button>
                     <p class="text-center text-sm text-slate-400 mt-4">Belum punya akun? <a href="#" onclick="toggleAuth('register')" class="text-beatles-cyan font-semibold hover:underline">Daftar di sini</a></p>
@@ -119,18 +120,18 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Lengkap</label>
-                        <input type="text" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <input type="text" id="register-name" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
-                        <input type="text" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <input type="text" id="register-username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
-                        <input type="password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <input type="password" id="register-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
-                    <button onclick="toggleAuth('login')" class="w-full bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] mt-4">
-                        Daftar & Lanjut Login
+                    <button onclick="submitRegister()" class="w-full bg-beatles-cyan hover:bg-cyan-500 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] mt-4">
+                        Daftar &amp; Lanjut Login
                     </button>
                     <p class="text-center text-sm text-slate-400 mt-4">Sudah punya akun? <a href="#" onclick="toggleAuth('login')" class="text-beatles-emerald font-semibold hover:underline">Masuk</a></p>
                 </div>
@@ -188,12 +189,29 @@
     </div>
 
     <script>
+        const API_BASE = '/api';
+        let authToken = localStorage.getItem('beatles_token') || '';
+
+        function setAuthError(message) {
+            const box = document.getElementById('auth-error');
+            if (!box) return;
+            if (message) {
+                box.innerText = message;
+                box.classList.remove('hidden');
+            } else {
+                box.innerText = '';
+                box.classList.add('hidden');
+            }
+        }
+
         function showAuth() {
             document.getElementById('view-console').classList.add('hidden');
             document.getElementById('view-auth').classList.remove('hidden');
+            setAuthError('');
         }
 
         function toggleAuth(type) {
+            setAuthError('');
             if(type === 'register') {
                 document.getElementById('form-login').classList.add('hidden');
                 document.getElementById('form-register').classList.remove('hidden');
@@ -203,27 +221,97 @@
             }
         }
 
-        function dummyLogin() {
-            const user = document.getElementById('login-username').value.toLowerCase() || 'user_demo';
-            let role = 'user';
-            
-            if(user === 'admin') role = 'admin';
-            if(user === 'bos') role = 'bos';
+        function enterDashboard(user) {
+            const role = String(user.role || 'USER').toLowerCase();
 
             document.getElementById('view-auth').classList.add('hidden');
             document.getElementById('view-dashboard').classList.remove('hidden');
             document.getElementById('user-role-display').innerText = `Akses: ${role}`;
-            document.getElementById('top-username').innerText = user.toUpperCase();
-            
+            document.getElementById('top-username').innerText = (user.name || user.username || '').toUpperCase();
+
             buildSidebar(role);
             loadContent(role, 'dashboard');
         }
 
+        async function submitLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!username || !password) {
+                setAuthError('Username dan kata sandi wajib diisi.');
+                return;
+            }
+
+            setAuthError('');
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.ok) {
+                    setAuthError(data.error || 'Gagal masuk. Periksa kembali kredensial Anda.');
+                    return;
+                }
+
+                authToken = data.token;
+                localStorage.setItem('beatles_token', authToken);
+                localStorage.setItem('beatles_user', JSON.stringify(data.user));
+                enterDashboard(data.user);
+            } catch (error) {
+                setAuthError('Tidak dapat menghubungi server. Coba lagi nanti.');
+            }
+        }
+
+        async function submitRegister() {
+            const name = document.getElementById('register-name').value.trim();
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+
+            if (!username || !password) {
+                setAuthError('Username dan kata sandi wajib diisi.');
+                return;
+            }
+
+            setAuthError('');
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, username, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.ok) {
+                    setAuthError(data.error || 'Registrasi gagal.');
+                    return;
+                }
+
+                document.getElementById('login-username').value = username;
+                document.getElementById('login-password').value = '';
+                toggleAuth('login');
+                setAuthError('Registrasi berhasil. Silakan masuk.');
+            } catch (error) {
+                setAuthError('Tidak dapat menghubungi server. Coba lagi nanti.');
+            }
+        }
+
         function logout() {
+            authToken = '';
+            localStorage.removeItem('beatles_token');
+            localStorage.removeItem('beatles_user');
+
             document.getElementById('view-dashboard').classList.add('hidden');
             document.getElementById('view-console').classList.remove('hidden');
             document.getElementById('login-username').value = '';
             document.getElementById('login-password').value = '';
+            setAuthError('');
         }
 
         function buildSidebar(role) {
@@ -435,6 +523,29 @@
                 </div>`;
             }
         }
+
+        async function restoreSession() {
+            if (!authToken) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (!res.ok) {
+                    throw new Error('session expired');
+                }
+
+                const data = await res.json();
+                enterDashboard(data.user);
+            } catch (error) {
+                localStorage.removeItem('beatles_token');
+                localStorage.removeItem('beatles_user');
+                authToken = '';
+            }
+        }
+
+        restoreSession();
     </script>
 </body>
 </html>

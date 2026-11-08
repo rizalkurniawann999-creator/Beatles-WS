@@ -1,13 +1,13 @@
-import 'dotenv/config';
-import express from 'express';
-import http from 'http';
-import cors from 'cors';
-import helmet from 'helmet';
-import path from 'path';
-import { fileURLToPath } from 'url';
+'use strict';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+require('dotenv/config');
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+
+const apiRouter = require('./routes/api.js');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +26,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.get('/api/health', (req, res) => {
     res.json({ status: 'success', message: 'Beatles-WS Gateway is running smoothly!' });
 });
+
+// Memasang seluruh route API (auth, dashboard, admin, whatsapp, dll)
+app.use('/api', apiRouter);
 
 // Menjalankan Server pada Port yang ditentukan
 const PORT = process.env.PORT || 3000;

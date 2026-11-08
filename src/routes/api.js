@@ -1,4 +1,4 @@
-use strict';
+'use strict';
 
 const express = require('express');
 const fs = require('fs');
@@ -16,7 +16,7 @@ const {
   getWhatsAppStatus,
   listWhatsAppSessions,
   disconnectWhatsApp,
-} = require('../whatsapp/client');
+} = require('./whatsapp/client');
 
 const router = express.Router();
 
