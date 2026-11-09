@@ -43,12 +43,21 @@ cloudflared tunnel route dns beatles-ws ws.contohdomain.com
 
 ### A. Quick tunnel (tanpa login, untuk uji cepat)
 
+Cara termudah — server + tunnel sekaligus:
+
+```bash
+npm run serve:public
+```
+
+Perintah ini menyalakan server Node lalu membuat quick tunnel, dan mencetak URL
+publik `https://xxxx.trycloudflare.com`. Tekan Ctrl+C untuk menghentikan
+keduanya. **Cocok untuk deploy test** (URL gratis, tapi berubah setiap restart).
+
+Alternatif jika server sudah jalan terpisah:
+
 ```bash
 npm run tunnel:quick
 ```
-
-Menghasilkan URL acak `https://xxxx.trycloudflare.com` yang meneruskan ke
-`http://localhost:3000`. Cocok untuk demo; URL berubah setiap kali dijalankan.
 
 ### B. Named tunnel (butuh login, untuk produksi)
 

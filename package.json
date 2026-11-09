@@ -13,6 +13,7 @@
     "cf:install": "bash cloudflare/scripts/install-cloudflared.sh",
     "cf:status": "bash cloudflare/scripts/status.sh",
     "tunnel:quick": "bash cloudflare/scripts/quick-tunnel.sh",
+    "serve:public": "bash cloudflare/scripts/serve-public.sh",
     "tunnel:start": "bash cloudflare/scripts/tunnel-token.sh",
     "deploy:pages": "bash cloudflare/scripts/deploy-pages.sh"
   },
