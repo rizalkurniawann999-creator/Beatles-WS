@@ -52,7 +52,10 @@ const authLimiter = rateLimit({
   limit: 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { ok: false, error: 'Terlalu banyak percobaan masuk. Coba lagi nanti.' },
+  // Hanya hitung percobaan yang GAGAL. Login yang berhasil tidak mengurangi
+  // kuota, sehingga pemakaian normal tidak pernah mengunci akun.
+  skipSuccessfulRequests: true,
+  message: { ok: false, error: 'Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.' },
 });
 
 app.use('/api/auth/login', authLimiter);

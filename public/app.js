@@ -105,8 +105,14 @@ async function api(path, options = {}) {
     }
 
     if (res.status === 401) {
+        // Hanya tampilkan "sesi berakhir" bila sebelumnya memang ada sesi aktif.
+        // Ini mencegah notif muncul saat restore sesi gagal atau polling tanpa token.
+        const hadSession = Boolean(authToken);
         handleUnauthorized();
-        throw new Error(data.error || 'Sesi berakhir. Silakan masuk lagi.');
+        if (hadSession) {
+            throw new Error(data.error || 'Sesi berakhir. Silakan masuk lagi.');
+        }
+        throw new Error(data.error || 'Silakan masuk terlebih dahulu.');
     }
 
     if (!res.ok || data.ok === false) {
@@ -116,15 +122,24 @@ async function api(path, options = {}) {
     return data;
 }
 
-function handleUnauthorized() {
+function handleUnauthorized(notify = true) {
+    const wasLoggedIn = Boolean(authToken || currentUser);
+
     stopPolling();
     authToken = '';
     currentUser = null;
     localStorage.removeItem('beatles_token');
     localStorage.removeItem('beatles_user');
+
+    // Langsung tampilkan form login agar user bisa segera masuk kembali.
     document.getElementById('view-dashboard').classList.add('hidden');
-    document.getElementById('view-console').classList.remove('hidden');
-    toast('Sesi berakhir. Silakan masuk kembali.', 'warn');
+    document.getElementById('view-console').classList.add('hidden');
+    showAuth();
+
+    // Hanya beri notif bila sebelumnya memang ada sesi aktif.
+    if (notify && wasLoggedIn) {
+        toast('Sesi berakhir. Silakan masuk kembali.', 'warn');
+    }
 }
 
 /* ------------------------------- Auth view ------------------------------ */
@@ -2058,9 +2073,13 @@ async function restoreSession() {
         const data = await api('/auth/me');
         enterDashboard(data.user);
     } catch {
-        authToken = '';
-        localStorage.removeItem('beatles_token');
-        localStorage.removeItem('beatles_user');
+        // api() sudah menangani 401 (menghapus token + menampilkan form login).
+        // Untuk gangguan jaringan sesaat, JANGAN hapus token — cukup tampilkan
+        // form login agar user bisa mencoba lagi tanpa kehilangan sesi.
+        if (authToken) {
+            showAuth();
+            toast('Gagal memulihkan sesi. Periksa koneksi lalu muat ulang.', 'warn');
+        }
     }
 }
 
