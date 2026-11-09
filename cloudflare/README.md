@@ -53,6 +53,15 @@ Perintah ini menyalakan server Node lalu membuat quick tunnel, dan mencetak URL
 publik `https://xxxx.trycloudflare.com`. Tekan Ctrl+C untuk menghentikan
 keduanya. **Cocok untuk deploy test** (URL gratis, tapi berubah setiap restart).
 
+Bila proses latar sering mati (mis. sandbox yang di-reset), jalankan penjaga
+yang otomatis menyalakan ulang server & tunnel:
+
+```bash
+npm run watchdog
+```
+
+URL terbaru selalu ditulis ke `.cloudflared/url.txt`.
+
 Alternatif jika server sudah jalan terpisah:
 
 ```bash

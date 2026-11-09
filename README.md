@@ -115,6 +115,7 @@ uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 - `npm run cf:status` — cek kesiapan Cloudflare (cloudflared, login, token).
 - `npm run tunnel:quick` — quick tunnel publik ke `localhost:3000` (uji cepat).
 - `npm run serve:public` — server + quick tunnel sekaligus (deploy test gratis).
+- `npm run watchdog` — penjaga: otomatis menyalakan ulang server & tunnel bila mati.
 - `npm run tunnel:start` — named tunnel via `CLOUDFLARE_TUNNEL_TOKEN`.
 - `npm run deploy:pages` — deploy folder `public/` ke Cloudflare Pages.
 
