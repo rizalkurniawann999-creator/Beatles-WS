@@ -244,53 +244,45 @@ function logout() {
     toast('Anda telah keluar.', 'info');
 }
 
-/* ------------------------------- Dashboard ------------------------------ */
+/* --------------------------- Navigasi per Role -------------------------- */
 
-function toggleSidebar(open) {
-    const sidebar = document.getElementById('sidebar');
-    const backdrop = document.getElementById('sidebar-backdrop');
-
-    if (open) {
-        sidebar.classList.remove('-translate-x-full');
-        backdrop.classList.remove('hidden');
-    } else {
-        sidebar.classList.add('-translate-x-full');
-        backdrop.classList.add('hidden');
-    }
-}
+/*
+ * Setiap role punya daftar halaman sendiri. Tidak ada fitur administratif
+ * yang boleh muncul di halaman USER, dan sebaliknya.
+ */
+const ROLE_NAV = {
+    user: [
+        { id: 'dashboard', icon: 'fa-chart-pie', label: 'Dashboard' },
+        { id: 'wa-sender', icon: 'fa-whatsapp', label: 'WhatsApp Pengirim' },
+        { id: 'broadcast', icon: 'fa-paper-plane', label: 'Kendali Massal' },
+        { id: 'afiliasi', icon: 'fa-users', label: 'Afiliasi Referral' },
+        { id: 'tarik', icon: 'fa-wallet', label: 'Tarik Saldo' }
+    ],
+    admin: [
+        { id: 'dashboard', icon: 'fa-server', label: 'Monitoring Server' },
+        { id: 'wa-connect', icon: 'fa-qrcode', label: 'Gateway WhatsApp' },
+        { id: 'manajemen-user', icon: 'fa-user-cog', label: 'Manajemen User' },
+        { id: 'kontak', icon: 'fa-address-book', label: 'Database Nomor' },
+        { id: 'manajemen-db', icon: 'fa-database', label: 'Unggah Database' },
+        { id: 'manajemen-template', icon: 'fa-file-lines', label: 'Template Pesan' },
+        { id: 'persetujuan', icon: 'fa-check-circle', label: 'Persetujuan Withdraw' },
+        { id: 'pengaturan', icon: 'fa-sliders', label: 'Pengaturan Sistem' }
+    ],
+    bos: [
+        { id: 'dashboard', icon: 'fa-chart-line', label: 'Executive Analytics' },
+        { id: 'aruskas', icon: 'fa-money-bill-wave', label: 'Laporan Arus Kas' },
+        { id: 'audit', icon: 'fa-history', label: 'Audit Log Admin' },
+        { id: 'darurat', icon: 'fa-exclamation-triangle', label: 'Sistem Darurat' }
+    ]
+};
 
 function navItemsFor(role) {
-    const shared = [
-        { id: 'wa-connect', icon: 'fa-qrcode', label: 'WhatsApp Gateway' },
-        { id: 'kontak', icon: 'fa-address-book', label: 'Database Nomor' },
-        { id: 'template', icon: 'fa-file-lines', label: 'Template Pesan' },
-        { id: 'kirim', icon: 'fa-paper-plane', label: 'Kirim Pesan' },
-        { id: 'broadcast', icon: 'fa-tower-broadcast', label: 'Kendali Massal' }
-    ];
+    return ROLE_NAV[role] || ROLE_NAV.user;
+}
 
-    if (role === 'admin') {
-        return [
-            { id: 'dashboard', icon: 'fa-server', label: 'Monitoring Server' },
-            ...shared,
-            { id: 'manajemen-user', icon: 'fa-user-cog', label: 'Manajemen User' },
-            { id: 'persetujuan', icon: 'fa-check-circle', label: 'Persetujuan Withdraw' },
-            { id: 'pengaturan', icon: 'fa-sliders', label: 'Pengaturan Tarif' }
-        ];
-    }
-
-    if (role === 'bos') {
-        return [
-            { id: 'dashboard', icon: 'fa-chart-line', label: 'Executive Analytics' },
-            ...shared,
-            { id: 'pengaturan', icon: 'fa-sliders', label: 'Pengaturan Tarif' }
-        ];
-    }
-
-    return [
-        { id: 'dashboard', icon: 'fa-chart-pie', label: 'Dashboard' },
-        ...shared,
-        { id: 'tarik', icon: 'fa-wallet', label: 'Tarik Saldo' }
-    ];
+/* Hanya halaman yang terdaftar untuk role ini yang boleh dibuka. */
+function isPageAllowed(role, page) {
+    return navItemsFor(role).some((item) => item.id === page);
 }
 
 function buildSidebar(role) {
@@ -311,6 +303,10 @@ function markActiveNav(page) {
     });
 }
 
+function currentRole() {
+    return String(currentUser?.role || 'USER').toLowerCase();
+}
+
 function enterDashboard(user) {
     currentUser = user;
     const role = String(user.role || 'USER').toLowerCase();
@@ -327,24 +323,47 @@ function enterDashboard(user) {
     startPolling();
 }
 
-function pageTitle(page) {
-    const map = {
-        dashboard: 'Dashboard',
-        'wa-connect': 'WhatsApp Gateway',
-        kontak: 'Database Nomor Tujuan',
-        template: 'Template Pesan',
-        kirim: 'Kirim Pesan',
-        broadcast: 'Kendali Massal (Broadcast)',
-        'manajemen-user': 'Manajemen User',
-        persetujuan: 'Persetujuan Withdraw',
-        pengaturan: 'Pengaturan Tarif',
-        tarik: 'Tarik Saldo'
-    };
+const PAGE_TITLES = {
+    dashboard: 'Dashboard',
+    'wa-connect': 'Gateway WhatsApp',
+    'wa-sender': 'WhatsApp Pengirim',
+    kontak: 'Database Nomor Tujuan',
+    'manajemen-db': 'Manajemen Database',
+    template: 'Template Pesan',
+    'manajemen-template': 'Template Pesan',
+    kirim: 'Kirim Pesan',
+    broadcast: 'Kendali Massal (Broadcast)',
+    'manajemen-user': 'Manajemen User',
+    persetujuan: 'Persetujuan Withdraw',
+    pengaturan: 'Pengaturan Sistem',
+    afiliasi: 'Afiliasi Referral',
+    aruskas: 'Laporan Arus Kas',
+    audit: 'Audit Log Admin',
+    darurat: 'Sistem Darurat',
+    tarik: 'Tarik Saldo'
+};
 
-    return map[page] || 'Dashboard';
+function pageTitle(page) {
+    return PAGE_TITLES[page] || 'Dashboard';
 }
 
 async function loadContent(page) {
+    const role = currentRole();
+
+    // Penjaga akses: halaman yang tidak terdaftar untuk role ini ditolak.
+    if (!isPageAllowed(role, page)) {
+        const content = document.getElementById('dashboard-content');
+        document.getElementById('page-title').innerText = 'Akses Ditolak';
+        markActiveNav('');
+        content.innerHTML = `
+            <div class="glass-panel border border-red-500/30 rounded-2xl p-8 text-center max-w-lg mx-auto">
+                <i class="fas fa-lock text-4xl text-red-400 mb-3"></i>
+                <h4 class="text-white font-bold mb-1">Akses Ditolak</h4>
+                <p class="text-sm text-slate-400">Halaman ini tidak tersedia untuk role <span class="uppercase text-beatles-cyan">${escapeHtml(role)}</span>.</p>
+            </div>`;
+        return;
+    }
+
     currentPage = page;
     document.getElementById('page-title').innerText = pageTitle(page);
     markActiveNav(page);
@@ -352,18 +371,30 @@ async function loadContent(page) {
     const content = document.getElementById('dashboard-content');
     content.innerHTML = `<div class="flex items-center justify-center py-24 text-slate-500"><span class="spinner mr-3"></span> Memuat ${escapeHtml(pageTitle(page))}...</div>`;
 
+    const routes = {
+        dashboard: () => (role === 'admin' ? renderAdminDashboard(content)
+            : role === 'bos' ? renderBossDashboard(content)
+                : renderUserDashboard(content)),
+        'wa-connect': () => renderWaConnect(content),
+        'wa-sender': () => renderWaSender(content),
+        kontak: () => renderContacts(content),
+        'manajemen-db': () => renderDatabases(content),
+        template: () => renderTemplates(content),
+        'manajemen-template': () => renderTemplates(content),
+        kirim: () => renderSendMessage(content),
+        broadcast: () => renderBroadcast(content),
+        'manajemen-user': () => renderUsers(content),
+        persetujuan: () => renderWithdrawals(content),
+        pengaturan: () => renderSettings(content),
+        afiliasi: () => renderAffiliate(content),
+        aruskas: () => renderCashflow(content),
+        audit: () => renderAudit(content),
+        darurat: () => renderEmergency(content),
+        tarik: () => renderWithdraw(content)
+    };
+
     try {
-        if (page === 'dashboard') return await renderDashboard(content);
-        if (page === 'wa-connect') return await renderWaConnect(content);
-        if (page === 'kontak') return await renderContacts(content);
-        if (page === 'template') return await renderTemplates(content);
-        if (page === 'kirim') return await renderSendMessage(content);
-        if (page === 'broadcast') return await renderBroadcast(content);
-        if (page === 'manajemen-user') return await renderUsers(content);
-        if (page === 'persetujuan') return await renderWithdrawals(content);
-        if (page === 'pengaturan') return await renderSettings(content);
-        if (page === 'tarik') return await renderWithdraw(content);
-        content.innerHTML = `<p class="text-slate-500">Halaman tidak dikenal.</p>`;
+        await routes[page]();
     } catch (error) {
         content.innerHTML = `
             <div class="glass-panel border border-red-500/30 rounded-2xl p-8 text-center">
@@ -375,6 +406,19 @@ async function loadContent(page) {
 
 /* ------------------------------- Dashboard ------------------------------ */
 
+function toggleSidebar(open) {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+
+    if (open) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+    } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+    }
+}
+
 function statCard(label, value, icon, color) {
     return `
         <div class="glass-panel p-6 rounded-2xl border-t-2 border-t-${color} shadow-lg relative overflow-hidden">
@@ -384,15 +428,8 @@ function statCard(label, value, icon, color) {
         </div>`;
 }
 
-async function renderDashboard(content) {
-    const [dash, messages] = await Promise.all([
-        api('/dashboard'),
-        api('/messages').catch(() => ({ messages: [] }))
-    ]);
-
-    const recent = (messages.messages || []).slice(0, 8);
-
-    const statusMeta = {
+function messageStatusMeta(status) {
+    const map = {
         sent: { cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', label: 'Terkirim' },
         not_registered: { cls: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30', label: 'Tidak terdaftar' },
         likely_blocked: { cls: 'bg-red-500/15 text-red-300 border-red-500/30', label: 'Terindikasi blokir' },
@@ -401,51 +438,168 @@ async function renderDashboard(content) {
         failed: { cls: 'bg-red-500/15 text-red-300 border-red-500/30', label: 'Gagal' }
     };
 
-    const rows = recent.length
-        ? recent.map((m) => {
-              const meta = statusMeta[m.status] || { cls: 'bg-slate-500/15 text-slate-300 border-slate-500/30', label: m.status || '-' };
-              return `
-                <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="p-3 font-mono text-xs text-slate-300">${escapeHtml(m.phone)}</td>
-                    <td class="p-3 text-slate-400 text-xs max-w-[220px] truncate" title="${escapeHtml(m.text)}">${escapeHtml((m.text || '').slice(0, 60))}</td>
-                    <td class="p-3"><span class="text-[10px] px-2 py-1 rounded border ${meta.cls}">${escapeHtml(meta.label)}</span></td>
-                    <td class="p-3 text-slate-500 text-xs">${escapeHtml(new Date(m.createdAt).toLocaleString('id-ID'))}</td>
-                </tr>`;
-          }).join('')
-        : `<tr><td colspan="4" class="p-6 text-center text-slate-500 text-sm">Belum ada riwayat pesan.</td></tr>`;
+    return map[status] || { cls: 'bg-slate-500/15 text-slate-300 border-slate-500/30', label: status || '-' };
+}
+
+function messageRows(messages) {
+    if (!messages.length) {
+        return `<tr><td colspan="4" class="p-6 text-center text-slate-500 text-sm">Belum ada riwayat pesan.</td></tr>`;
+    }
+
+    return messages.map((m) => {
+        const meta = messageStatusMeta(m.status);
+        return `
+            <tr class="hover:bg-slate-800/40 transition-colors">
+                <td class="p-3 font-mono text-xs text-slate-300">${escapeHtml(m.phone)}</td>
+                <td class="p-3 text-slate-400 text-xs max-w-[220px] truncate" title="${escapeHtml(m.text)}">${escapeHtml((m.text || '').slice(0, 60))}</td>
+                <td class="p-3"><span class="text-[10px] px-2 py-1 rounded border ${meta.cls}">${escapeHtml(meta.label)}</span></td>
+                <td class="p-3 text-slate-500 text-xs">${escapeHtml(new Date(m.createdAt).toLocaleString('id-ID'))}</td>
+            </tr>`;
+    }).join('');
+}
+
+function messageHistoryPanel(messages) {
+    return `
+        <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+            <h4 class="text-lg font-bold text-white mb-4 flex items-center"><i class="fas fa-clock-rotate-left text-beatles-cyan mr-2"></i> Riwayat Pesan Terbaru</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/80 text-beatles-cyan text-xs uppercase tracking-wider">
+                        <tr><th class="p-3">Nomor</th><th class="p-3">Pesan</th><th class="p-3">Status</th><th class="p-3">Waktu</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">${messageRows(messages)}</tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+/* --------- Dashboard USER: fokus fungsionalitas pengguna biasa --------- */
+
+async function renderUserDashboard(content) {
+    const [dash, messages] = await Promise.all([
+        api('/dashboard'),
+        api('/messages').catch(() => ({ messages: [] }))
+    ]);
+
+    const recent = (messages.messages || []).slice(0, 8);
 
     content.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-            ${statCard('Total Kontak', dash.contactsCount ?? 0, 'fa-address-book', 'beatles-cyan')}
-            ${statCard('Template Pesan', dash.templatesCount ?? 0, 'fa-file-lines', 'blue-500')}
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
             ${statCard('Pesan Terkirim', dash.messagesSent ?? 0, 'fa-paper-plane', 'beatles-emerald')}
             ${statCard('Pesan Gagal', dash.messagesFailed ?? 0, 'fa-triangle-exclamation', 'red-500')}
+            ${statCard('Saldo Penarikan', 'Rp 0', 'fa-wallet', 'beatles-cyan')}
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
-                <h4 class="text-lg font-bold text-white mb-4 flex items-center"><i class="fas fa-clock-rotate-left text-beatles-cyan mr-2"></i> Riwayat Pesan Terbaru</h4>
-                <div class="overflow-x-auto rounded-xl border border-slate-700">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-800/80 text-beatles-cyan text-xs uppercase tracking-wider">
-                            <tr><th class="p-3">Nomor</th><th class="p-3">Pesan</th><th class="p-3">Status</th><th class="p-3">Waktu</th></tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700/50">${rows}</tbody>
-                    </table>
+            ${messageHistoryPanel(recent)}
+
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4 flex items-center"><i class="fas fa-bullhorn text-beatles-cyan mr-2"></i> Pengumuman</h4>
+                <div class="bg-yellow-500/10 border-l-4 border-yellow-500 p-4 rounded-r-lg text-yellow-200 text-sm mb-4">
+                    <span class="font-bold">Perhatian!</span> Dilarang mengirim konten judi online atau penipuan. Sistem akan memblokir nomor yang terdeteksi spam.
+                </div>
+                <ul class="space-y-2 text-sm text-slate-400">
+                    <li class="flex items-start gap-2"><i class="fas fa-circle-check text-beatles-emerald mt-1"></i> Tautkan WhatsApp Anda di menu <span class="text-white">WhatsApp Pengirim</span>.</li>
+                    <li class="flex items-start gap-2"><i class="fas fa-circle-check text-beatles-emerald mt-1"></i> Gunakan <span class="text-white">Kendali Massal</span> untuk broadcast dengan jeda anti-ban.</li>
+                </ul>
+            </div>
+        </div>`;
+}
+
+/* --------- Dashboard ADMIN: monitoring server --------- */
+
+async function renderAdminDashboard(content) {
+    const [mon, messages] = await Promise.all([
+        api('/admin/monitoring'),
+        api('/messages').catch(() => ({ messages: [] }))
+    ]);
+
+    const uptime = `${Math.floor(mon.uptimeSeconds / 3600)}j ${Math.floor((mon.uptimeSeconds % 3600) / 60)}m`;
+
+    content.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+            ${statCard('Sesi Terhubung', `${mon.connectedSessions}/${mon.sessions.length}`, 'fa-plug', 'beatles-emerald')}
+            ${statCard('Uptime Server', uptime, 'fa-server', 'beatles-cyan')}
+            ${statCard('Memori (RSS)', `${mon.memoryMb} MB`, 'fa-microchip', 'blue-500')}
+            ${statCard('Withdraw Pending', mon.pendingWithdrawals ?? 0, 'fa-hourglass-half', 'yellow-500')}
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-server text-beatles-cyan mr-2"></i> Status Runtime</h4>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Node.js</span><span class="text-white font-mono">${escapeHtml(mon.nodeVersion)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Platform</span><span class="text-white">${escapeHtml(mon.platform)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Total User</span><span class="text-white">${escapeHtml(mon.usersCount)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Database Nomor</span><span class="text-white">${escapeHtml(mon.databasesCount)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Kontak</span><span class="text-white">${escapeHtml(mon.contactsCount)}</span></li>
+                    <li class="flex justify-between"><span class="text-slate-400">Template</span><span class="text-white">${escapeHtml(mon.templatesCount)}</span></li>
+                </ul>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-tower-broadcast text-beatles-cyan mr-2"></i> Statistik Pesan</h4>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-2xl font-black text-white">${escapeHtml(mon.messagesTotal)}</p><p class="text-[10px] text-slate-400 uppercase mt-1">Total</p></div>
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-2xl font-black text-emerald-400">${escapeHtml(mon.messagesSent)}</p><p class="text-[10px] text-slate-400 uppercase mt-1">Terkirim</p></div>
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-2xl font-black text-red-400">${escapeHtml(mon.messagesFailed)}</p><p class="text-[10px] text-slate-400 uppercase mt-1">Gagal</p></div>
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-2xl font-black text-yellow-400">Rp ${escapeHtml(mon.tariff)}</p><p class="text-[10px] text-slate-400 uppercase mt-1">Tarif</p></div>
                 </div>
             </div>
 
             <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
-                <h4 class="text-lg font-bold text-white mb-4 flex items-center"><i class="fas fa-circle-info text-beatles-cyan mr-2"></i> Ringkasan Akun</h4>
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-plug text-beatles-cyan mr-2"></i> Sesi Gateway</h4>
+                <div class="space-y-3">
+                    ${mon.sessions.length ? mon.sessions.map((s) => {
+                        const badge = waStatusBadge(s.status);
+                        return `<div class="flex items-center justify-between bg-slate-800/70 rounded-lg px-3 py-2">
+                            <span class="text-sm text-white font-mono">${escapeHtml(s.sessionId)}</span>
+                            <span class="status-dot ${badge.dot}"></span>
+                        </div>`;
+                    }).join('') : '<p class="text-sm text-slate-500 text-center py-4">Belum ada sesi.</p>'}
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6">
+            ${messageHistoryPanel((messages.messages || []).slice(0, 10))}
+        </div>`;
+}
+
+/* --------- Dashboard BOS: executive analytics --------- */
+
+async function renderBossDashboard(content) {
+    const analytics = await api('/boss/analytics');
+
+    content.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+            ${statCard('Pendapatan (estimasi)', `Rp ${analytics.estimatedRevenue}`, 'fa-sack-dollar', 'beatles-emerald')}
+            ${statCard('Total Pesan', analytics.messagesTotal ?? 0, 'fa-paper-plane', 'beatles-cyan')}
+            ${statCard('Withdraw Disetujui', analytics.withdrawalsApproved ?? 0, 'fa-money-bill-wave', 'blue-500')}
+            ${statCard('Withdraw Pending', analytics.withdrawalsPending ?? 0, 'fa-hourglass-half', 'yellow-500')}
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-chart-simple text-beatles-cyan mr-2"></i> Ringkasan Operasional</h4>
                 <ul class="space-y-3 text-sm">
-                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Pengguna</span><span class="text-white font-semibold">${escapeHtml(currentUser?.username || '-')}</span></li>
-                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Role</span><span class="text-beatles-emerald font-semibold uppercase">${escapeHtml(currentUser?.role || '-')}</span></li>
-                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Tarif / pesan</span><span class="text-yellow-400 font-mono">Rp ${escapeHtml(dash.tariff)}</span></li>
-                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Database</span><span class="text-white font-semibold">${escapeHtml(dash.databasesCount ?? 0)}</span></li>
-                    <li class="flex justify-between"><span class="text-slate-400">Withdraw pending</span><span class="text-white font-semibold">${escapeHtml(dash.pendingWithdrawals ?? 0)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Pesan terkirim</span><span class="text-emerald-400 font-semibold">${escapeHtml(analytics.messagesSent)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Pesan gagal</span><span class="text-red-400 font-semibold">${escapeHtml(analytics.messagesFailed)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Total user</span><span class="text-white">${escapeHtml(analytics.usersCount)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Kontak</span><span class="text-white">${escapeHtml(analytics.contactsCount)}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Template</span><span class="text-white">${escapeHtml(analytics.templatesCount)}</span></li>
+                    <li class="flex justify-between"><span class="text-slate-400">Tarif / pesan</span><span class="text-yellow-400 font-mono">Rp ${escapeHtml(analytics.tariff)}</span></li>
                 </ul>
-                <div class="mt-5 bg-yellow-500/10 border-l-4 border-yellow-500 p-3 rounded-r-lg text-yellow-200 text-xs">
-                    <span class="font-bold">Perhatian!</span> Jangan mengirim konten spam. Sistem memberi jeda otomatis untuk menjaga reputasi nomor.
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-money-bill-wave text-beatles-cyan mr-2"></i> Arus Kas (Ringkas)</h4>
+                <div class="space-y-3">
+                    ${(analytics.cashflow || []).map((c) => `
+                        <div class="flex items-center justify-between bg-slate-800/70 rounded-lg px-4 py-3">
+                            <span class="text-sm text-slate-300">${escapeHtml(c.label)}</span>
+                            <span class="font-mono font-bold ${c.type === 'in' ? 'text-emerald-400' : 'text-red-400'}">${c.type === 'in' ? '+' : '-'} Rp ${escapeHtml(c.amount)}</span>
+                        </div>`).join('')}
                 </div>
             </div>
         </div>`;
@@ -682,6 +836,83 @@ async function logoutSession(sessionId) {
     }
 }
 
+/* --------- WhatsApp Pengirim (halaman USER, read-only gateway) ---------- */
+/*
+ * USER tidak mengelola gateway. Halaman ini hanya menampilkan status koneksi
+ * dan form kirim pesan cepat. Bila gateway belum tersambung, USER diberi tahu
+ * untuk menghubungi ADMIN.
+ */
+async function renderWaSender(content) {
+    const status = await api('/whatsapp/connected').catch(() => ({ connected: false, status: 'disconnected' }));
+    const templates = (await api('/templates').catch(() => ({ templates: [] }))).templates || [];
+    const badge = waStatusBadge(status.status);
+
+    content.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                    <div class="flex items-center justify-between mb-5">
+                        <h4 class="text-xl font-black text-white"><i class="fab fa-whatsapp text-beatles-emerald mr-2"></i> WhatsApp Pengirim</h4>
+                        <span class="text-xs px-3 py-1 rounded-full border ${badge.cls}">${escapeHtml(badge.label)}</span>
+                    </div>
+
+                    ${status.connected ? '' : `<div class="mb-4 bg-yellow-500/10 border-l-4 border-yellow-500 p-3 rounded-r-lg text-yellow-200 text-sm"><i class="fas fa-triangle-exclamation mr-1"></i> Gateway WhatsApp belum tersambung. Hubungi ADMIN untuk menautkan perangkat.</div>`}
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nomor Tujuan</label>
+                            <input id="sender-phone" type="tel" placeholder="6281234567890" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-semibold text-beatles-cyan uppercase tracking-wider">Isi Pesan</label>
+                                ${templates.length ? `<select onchange="if(this.value){document.getElementById('sender-message').value=this.value; this.selectedIndex=0;}" class="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300"><option value="">Pilih template...</option>${templates.map((t) => `<option value="${escapeHtml(t.content)}">${escapeHtml(t.name)}</option>`).join('')}</select>` : ''}
+                            </div>
+                            <textarea id="sender-message" rows="6" placeholder="Tulis pesan Anda..." class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 px-4 text-white focus:border-beatles-cyan focus:outline-none"></textarea>
+                        </div>
+                        <button id="sender-btn" onclick="sendFromUser(this)" class="w-full bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 font-black py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"><i class="fas fa-paper-plane mr-2"></i> Kirim Pesan</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-circle-info text-beatles-cyan mr-2"></i> Status Pengiriman</h4>
+                <div id="sender-result" class="text-sm text-slate-500 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/30 p-6 text-center min-h-[200px] flex items-center justify-center">
+                    Hasil pengiriman akan muncul di sini.
+                </div>
+            </div>
+        </div>`;
+}
+
+async function sendFromUser(button) {
+    const phone = document.getElementById('sender-phone').value.trim();
+    const message = document.getElementById('sender-message').value.trim();
+    const box = document.getElementById('sender-result');
+
+    if (!phone || !message) {
+        toast('Nomor tujuan dan isi pesan wajib diisi.', 'warn');
+        return;
+    }
+
+    setBusy(button, true, 'Mengirim...');
+    box.innerHTML = '<span class="spinner"></span>';
+
+    try {
+        const data = await api('/send-message', { method: 'POST', body: JSON.stringify({ phone, message }) });
+        box.innerHTML = sendStatusBadge(data);
+        if (data.ok) {
+            toast('Pesan terkirim.', 'success');
+        } else {
+            toast(`Pengiriman gagal: ${data.detail || data.reason}`, 'error');
+        }
+    } catch (error) {
+        box.innerHTML = `<p class="text-red-300 text-sm">${escapeHtml(error.message)}</p>`;
+        toast(error.message, 'error');
+    } finally {
+        setBusy(button, false);
+    }
+}
+
 /* ------------------------------- Polling -------------------------------- */
 
 function updateGlobalWaPill(data) {
@@ -704,20 +935,26 @@ function startPolling() {
 
     const tick = async () => {
         try {
-            const sessionsData = await api('/whatsapp/sessions');
+            // ADMIN/BOS memakai daftar sesi penuh; role lain memakai ringkasan
+            // read-only agar tidak menyentuh endpoint administratif.
+            const canManage = currentRole() === 'admin' || currentRole() === 'bos';
 
-            if (sessionsData.sessions && sessionsData.sessions.length) {
-                const preferred = sessionsData.sessions.find((s) => s.sessionId === activeWaSessionId) || sessionsData.sessions[0];
-                updateGlobalWaPill(preferred);
+            if (canManage) {
+                const sessionsData = await api('/whatsapp/sessions');
 
-                if (currentPage === 'wa-connect') {
-                    await refreshWaPanel(activeWaSessionId || preferred.sessionId);
+                if (sessionsData.sessions && sessionsData.sessions.length) {
+                    const preferred = sessionsData.sessions.find((s) => s.sessionId === activeWaSessionId) || sessionsData.sessions[0];
+                    updateGlobalWaPill(preferred);
+
+                    if (currentPage === 'wa-connect') {
+                        await refreshWaPanel(activeWaSessionId || preferred.sessionId);
+                    }
+                } else {
+                    updateGlobalWaPill({ status: 'disconnected' });
                 }
             } else {
-                const dot = document.getElementById('wa-status-dot');
-                const text = document.getElementById('wa-status-text');
-                if (dot) dot.className = 'status-dot bg-slate-500';
-                if (text) text.innerText = 'Belum terhubung';
+                const status = await api('/whatsapp/connected');
+                updateGlobalWaPill({ status: status.status });
             }
         } catch {
             // Diamkan bila sesi berakhir; api() sudah menangani 401.
@@ -1417,14 +1654,30 @@ async function updateWithdrawal(id, status) {
 /* ----------------------------- Pengaturan ------------------------------- */
 
 async function renderSettings(content) {
-    const data = await api('/settings/tariff');
+    const [tariffData, mon] = await Promise.all([
+        api('/settings/tariff'),
+        api('/admin/monitoring').catch(() => ({}))
+    ]);
 
     content.innerHTML = `
-        <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg max-w-lg">
-            <h4 class="text-xl font-black text-white mb-5"><i class="fas fa-sliders text-beatles-cyan mr-2"></i> Pengaturan Tarif</h4>
-            <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Tarif per Pesan (Rp)</label>
-            <input id="tariff-input" type="number" min="0" value="${escapeHtml(data.tariff)}" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white mb-4 focus:border-beatles-cyan focus:outline-none">
-            <button id="tariff-save" onclick="saveTariff(this)" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 px-5 py-2.5 rounded-lg font-bold transition-all">Simpan Tarif</button>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-xl font-black text-white mb-5"><i class="fas fa-sliders text-beatles-cyan mr-2"></i> Pengaturan Sistem</h4>
+                <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Tarif per Pesan (Rp)</label>
+                <input id="tariff-input" type="number" min="0" value="${escapeHtml(tariffData.tariff)}" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white mb-4 focus:border-beatles-cyan focus:outline-none">
+                <button id="tariff-save" onclick="saveTariff(this)" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 px-5 py-2.5 rounded-lg font-bold transition-all">Simpan Tarif</button>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-circle-info text-beatles-cyan mr-2"></i> Informasi Server</h4>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Node.js</span><span class="text-white font-mono">${escapeHtml(mon.nodeVersion || '-')}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Platform</span><span class="text-white">${escapeHtml(mon.platform || '-')}</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Uptime</span><span class="text-white">${escapeHtml(Math.floor((mon.uptimeSeconds || 0) / 60))} menit</span></li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Memori (RSS)</span><span class="text-white">${escapeHtml(mon.memoryMb ?? '-')} MB</span></li>
+                    <li class="flex justify-between"><span class="text-slate-400">Total User</span><span class="text-white">${escapeHtml(mon.usersCount ?? '-')}</span></li>
+                </ul>
+            </div>
         </div>`;
 }
 
@@ -1497,6 +1750,255 @@ async function submitWithdraw(button) {
         await api('/withdrawals', { method: 'POST', body: JSON.stringify({ amount, method, destination }) });
         toast('Permintaan penarikan dicatat.', 'success');
         await renderWithdraw(document.getElementById('dashboard-content'));
+    } catch (error) {
+        toast(error.message, 'error');
+    } finally {
+        setBusy(button, false);
+    }
+}
+
+/* ------------------------- Admin: Manajemen DB -------------------------- */
+
+async function renderDatabases(content) {
+    const data = await api('/admin/databases');
+    const databases = data.databases || [];
+
+    content.innerHTML = `
+        <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h4 class="text-xl font-black text-white">Manajemen Database</h4>
+                <p class="text-sm text-slate-400">Unggah file .txt berisi nomor. Nomor valid otomatis ditambahkan ke database kontak.</p>
+            </div>
+            <button onclick="openDatabaseForm()" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 px-4 py-2.5 rounded-lg font-bold transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)]"><i class="fas fa-plus mr-1"></i> Database Baru</button>
+        </div>
+
+        <div class="glass-panel rounded-2xl border border-slate-700 shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/80 text-beatles-cyan text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="p-4">Nama Kategori</th>
+                            <th class="p-4">Total Nomor (TXT)</th>
+                            <th class="p-4">Tarif / Pesan</th>
+                            <th class="p-4">Media Template</th>
+                            <th class="p-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        ${databases.length ? databases.map((d) => `
+                            <tr class="hover:bg-slate-800/40 transition-colors">
+                                <td class="p-4 font-semibold text-white">${escapeHtml(d.name)}</td>
+                                <td class="p-4"><span class="text-beatles-emerald font-bold">${escapeHtml(d.totalNumbers ?? 0)}</span></td>
+                                <td class="p-4"><span class="text-yellow-400 font-mono">Rp ${escapeHtml(d.tariffPerMsg ?? 0)}</span></td>
+                                <td class="p-4"><span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs border border-blue-500/30">${escapeHtml(d.mediaType || 'text')}</span></td>
+                                <td class="p-4 text-center">
+                                    <button onclick="deleteDatabase('${escapeHtml(d.id)}')" class="text-slate-400 hover:text-red-500 bg-slate-800 p-2 rounded-lg transition" title="Hapus DB"><i class="fas fa-trash-alt"></i></button>
+                                </td>
+                            </tr>`).join('') : `<tr><td colspan="5" class="p-8 text-center text-slate-500">Belum ada database. Unggah file .txt untuk memulai.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+function openDatabaseForm() {
+    openModal(`
+        <div class="p-6">
+            <h4 class="text-xl font-bold text-white mb-5"><i class="fas fa-database text-beatles-cyan mr-2"></i> Database Baru</h4>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Kategori</label>
+                    <input id="db-name" type="text" placeholder="Promo Akhir Tahun" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Tarif per Pesan (Rp)</label>
+                    <input id="db-tariff" type="number" min="0" value="150" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Tipe Media</label>
+                    <select id="db-media" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
+                        <option value="text">Teks</option>
+                        <option value="text+photo">Teks + Foto</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">File .txt (nomor per baris)</label>
+                    <input id="db-file" type="file" accept=".txt" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white file:mr-3 file:bg-slate-700 file:text-white file:border-0 file:rounded file:px-3 file:py-1.5">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg font-semibold">Batal</button>
+                <button id="db-save" onclick="submitDatabase(this)" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 px-5 py-2.5 rounded-lg font-bold">Unggah</button>
+            </div>
+        </div>`);
+}
+
+async function submitDatabase(button) {
+    const name = document.getElementById('db-name').value.trim() || 'Kategori Baru';
+    const tariffPerMsg = document.getElementById('db-tariff').value || '150';
+    const mediaType = document.getElementById('db-media').value;
+    const fileInput = document.getElementById('db-file');
+
+    const form = new FormData();
+    form.append('name', name);
+    form.append('tariffPerMsg', tariffPerMsg);
+    form.append('mediaType', mediaType);
+    if (fileInput.files[0]) form.append('file', fileInput.files[0]);
+
+    setBusy(button, true, 'Mengunggah...');
+
+    try {
+        const res = await fetch(`${API_BASE}/admin/databases`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${authToken}` },
+            body: form
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal mengunggah database.');
+
+        toast(data.message || 'Database dibuat.', 'success');
+        closeModal();
+        await renderDatabases(document.getElementById('dashboard-content'));
+    } catch (error) {
+        toast(error.message, 'error');
+    } finally {
+        setBusy(button, false);
+    }
+}
+
+async function deleteDatabase(id) {
+    if (!confirm('Hapus database ini beserta filenya?')) return;
+    try {
+        await api(`/admin/databases/${id}`, { method: 'DELETE' });
+        toast('Database dihapus.', 'success');
+        await renderDatabases(document.getElementById('dashboard-content'));
+    } catch (error) {
+        toast(error.message, 'error');
+    }
+}
+
+/* ----------------------- User: Afiliasi Referral ------------------------ */
+
+async function renderAffiliate(content) {
+    const user = currentUser || {};
+    const code = (user.username || 'user').toUpperCase();
+    const link = `${window.location.origin}/?ref=${encodeURIComponent(code)}`;
+
+    content.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-xl font-black text-white mb-5"><i class="fas fa-users text-beatles-cyan mr-2"></i> Afiliasi Referral</h4>
+                <p class="text-sm text-slate-400 mb-5">Bagikan kode referral Anda. Setiap pendaftaran yang memakai kode ini akan tercatat sebagai rujukan Anda.</p>
+                <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kode Referral</label>
+                <div class="flex gap-3 mb-5">
+                    <input id="ref-code" readonly value="${escapeHtml(code)}" class="glow-focus flex-1 bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white font-mono focus:outline-none">
+                    <button onclick="copyReferral('${escapeHtml(code)}')" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 px-4 py-2.5 rounded-lg font-bold"><i class="fas fa-copy"></i></button>
+                </div>
+                <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Tautan Referral</label>
+                <div class="flex gap-3">
+                    <input id="ref-link" readonly value="${escapeHtml(link)}" class="glow-focus flex-1 bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white text-sm focus:outline-none">
+                    <button onclick="copyReferral(document.getElementById('ref-link').value)" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2.5 rounded-lg font-semibold"><i class="fas fa-link"></i></button>
+                </div>
+            </div>
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                <h4 class="text-lg font-bold text-white mb-4"><i class="fas fa-chart-pie text-beatles-cyan mr-2"></i> Statistik Referral</h4>
+                <div class="space-y-4 text-center">
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-3xl font-black text-white">0</p><p class="text-[10px] text-slate-400 uppercase mt-1">Total Rujukan</p></div>
+                    <div class="bg-slate-800/70 rounded-lg p-4"><p class="text-3xl font-black text-beatles-emerald">Rp 0</p><p class="text-[10px] text-slate-400 uppercase mt-1">Komisi</p></div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function copyReferral(text) {
+    navigator.clipboard?.writeText(text).then(
+        () => toast('Disalin ke clipboard.', 'success'),
+        () => toast('Gagal menyalin.', 'error')
+    );
+}
+
+/* ------------------------ BOS: Laporan Arus Kas ------------------------- */
+
+async function renderCashflow(content) {
+    const analytics = await api('/boss/analytics');
+
+    content.innerHTML = `
+        <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg mb-6">
+            <h4 class="text-xl font-black text-white mb-2"><i class="fas fa-money-bill-wave text-beatles-cyan mr-2"></i> Laporan Arus Kas</h4>
+            <p class="text-sm text-slate-400">Ringkasan masuk-keluar berdasarkan data operasional.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            ${(analytics.cashflow || []).map((c) => `
+                <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+                    <h5 class="text-sm text-slate-400 uppercase tracking-wider mb-2">${escapeHtml(c.label)}</h5>
+                    <p class="text-3xl font-black ${c.type === 'in' ? 'text-emerald-400' : 'text-red-400'}">${c.type === 'in' ? '+' : '-'} Rp ${escapeHtml(c.amount)}</p>
+                </div>`).join('')}
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+            <h4 class="text-lg font-bold text-white mb-4">Rincian Operasional</h4>
+            <ul class="space-y-3 text-sm">
+                <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Pesan terkirim (dasar pendapatan)</span><span class="text-emerald-400 font-semibold">${escapeHtml(analytics.messagesSent)}</span></li>
+                <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Tarif per pesan</span><span class="text-yellow-400 font-mono">Rp ${escapeHtml(analytics.tariff)}</span></li>
+                <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Total withdraw</span><span class="text-white">${escapeHtml(analytics.withdrawalsTotal)}</span></li>
+                <li class="flex justify-between border-b border-slate-700/50 pb-2"><span class="text-slate-400">Withdraw disetujui</span><span class="text-emerald-400">${escapeHtml(analytics.withdrawalsApproved)}</span></li>
+                <li class="flex justify-between"><span class="text-slate-400">Withdraw pending</span><span class="text-yellow-400">${escapeHtml(analytics.withdrawalsPending)}</span></li>
+            </ul>
+        </div>`;
+}
+
+/* -------------------------- BOS: Audit Log ----------------------------- */
+
+async function renderAudit(content) {
+    const data = await api('/boss/audit');
+    const events = data.events || [];
+
+    content.innerHTML = `
+        <div class="glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
+            <h4 class="text-xl font-black text-white mb-5"><i class="fas fa-history text-beatles-cyan mr-2"></i> Audit Log Admin</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-700">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800/80 text-beatles-cyan text-xs uppercase tracking-wider">
+                        <tr><th class="p-4">Waktu</th><th class="p-4">Aktor</th><th class="p-4">Aksi</th><th class="p-4">Detail</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        ${events.length ? events.map((e) => `
+                            <tr class="hover:bg-slate-800/40 transition-colors">
+                                <td class="p-4 text-slate-500 text-xs">${escapeHtml(new Date(e.at).toLocaleString('id-ID'))}</td>
+                                <td class="p-4 text-white font-mono text-xs">${escapeHtml(e.actor)}</td>
+                                <td class="p-4"><span class="text-[10px] px-2 py-1 rounded border bg-slate-700 text-slate-200 border-slate-600">${escapeHtml(e.action)}</span></td>
+                                <td class="p-4 text-slate-300 text-xs">${escapeHtml(e.detail)}</td>
+                            </tr>`).join('') : `<tr><td colspan="4" class="p-8 text-center text-slate-500">Belum ada aktivitas tercatat.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+/* ------------------------ BOS: Sistem Darurat --------------------------- */
+
+async function renderEmergency(content) {
+    content.innerHTML = `
+        <div class="glass-panel p-6 rounded-2xl border border-red-500/30 shadow-lg max-w-2xl">
+            <h4 class="text-xl font-black text-white mb-2"><i class="fas fa-exclamation-triangle text-red-400 mr-2"></i> Sistem Darurat</h4>
+            <p class="text-sm text-slate-400 mb-6">Tombol di bawah menghentikan seluruh broadcast yang sedang berjalan. Gunakan hanya saat terjadi masalah pengiriman.</p>
+            <div class="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-lg text-red-200 text-sm mb-6">
+                <span class="font-bold">Perhatian!</span> Tindakan ini tidak dapat dibatalkan. Broadcast yang dihentikan harus dimulai ulang secara manual.
+            </div>
+            <button id="emergency-btn" onclick="triggerEmergency(this)" class="bg-red-500 hover:bg-red-600 text-white font-black py-3.5 px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]"><i class="fas fa-hand mr-2"></i> HENTIKAN SEMUA BROADCAST</button>
+        </div>`;
+}
+
+async function triggerEmergency(button) {
+    if (!confirm('Hentikan SEMUA broadcast yang sedang berjalan sekarang?')) return;
+
+    setBusy(button, true, 'Menghentikan...');
+
+    try {
+        const data = await api('/boss/emergency-stop', { method: 'POST' });
+        toast(data.message || 'Perintah darurat dikirim.', 'success');
     } catch (error) {
         toast(error.message, 'error');
     } finally {

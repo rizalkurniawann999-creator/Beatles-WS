@@ -180,6 +180,24 @@ function handleError(res, error, fallback, status = 500) {
   return res.status(code).json({ ok: false, error: error.message || fallback });
 }
 
+/*
+ * Menentukan sesi WhatsApp yang dipakai untuk mengirim. Bila pemanggil tidak
+ * menyebut sesi (atau sesi yang diminta tidak ada), pakai sesi pertama yang
+ * berstatus "connected". Ini memungkinkan halaman USER ikut memakai gateway
+ * yang sudah ditautkan oleh ADMIN tanpa perlu tahu detail sesi.
+ */
+function resolveActiveSession(requested) {
+  const sessions = listWhatsAppSessions();
+  const wanted = String(requested || '').trim();
+
+  if (wanted && sessions.some((s) => s.sessionId === wanted)) {
+    return wanted;
+  }
+
+  const connected = sessions.find((s) => s.status === 'connected');
+  return connected ? connected.sessionId : (wanted || 'device-01');
+}
+
 // ---------- Health ----------
 
 router.get('/health', (_req, res) => {
@@ -550,7 +568,7 @@ router.get('/contacts', auth, (req, res) => {
   res.json({ ok: true, contacts, total: contacts.length, tags });
 });
 
-router.post('/contacts', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
+router.post('/contacts', auth, allow('ADMIN', 'BOS'), (req, res) => {
   const data = sanitizeContact(req.body);
 
   if (data.error) {
@@ -578,7 +596,7 @@ router.post('/contacts', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
   return res.status(201).json({ ok: true, contact });
 });
 
-router.patch('/contacts/:id', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
+router.patch('/contacts/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
   const store = readStore();
   const contact = (store.contacts || []).find((c) => c.id === req.params.id);
 
@@ -614,7 +632,7 @@ router.patch('/contacts/:id', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) =>
   return res.json({ ok: true, contact });
 });
 
-router.delete('/contacts/:id', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
+router.delete('/contacts/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
   const store = readStore();
   const list = store.contacts || [];
   const index = list.findIndex((c) => c.id === req.params.id);
@@ -683,7 +701,7 @@ router.post('/contacts/import', auth, allow('ADMIN', 'BOS'), (req, res) => {
 
 router.post('/contacts/check', auth, allow('ADMIN', 'BOS', 'USER'), async (req, res) => {
   try {
-    const sessionId = String(req.body?.sessionId || 'device-01').trim();
+    const sessionId = resolveActiveSession(req.body?.sessionId);
 
     const requested = Array.isArray(req.body?.phones)
       ? req.body.phones
@@ -741,7 +759,7 @@ router.get('/messages', auth, (req, res) => {
 });
 
 router.post('/send-message', auth, allow('ADMIN', 'BOS', 'USER'), async (req, res) => {
-  const sessionId = String(req.body?.sessionId || 'device-01').trim();
+  const sessionId = resolveActiveSession(req.body?.sessionId);
   const phone = normalizeNumber(req.body?.phone || req.body?.to);
   const text = String(req.body?.message ?? req.body?.text ?? '').trim();
 
@@ -854,7 +872,7 @@ function runBroadcast(job) {
 }
 
 router.post('/broadcast', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
-  const sessionId = String(req.body?.sessionId || 'device-01').trim();
+  const sessionId = resolveActiveSession(req.body?.sessionId);
   const text = String(req.body?.message ?? req.body?.text ?? '').trim();
   const speed = String(req.body?.speed || 'safe').toLowerCase();
 
@@ -988,6 +1006,27 @@ router.post('/broadcast/:id/cancel', auth, allow('ADMIN', 'BOS', 'USER'), (req, 
   return res.json({ ok: true, message: 'Permintaan pembatalan dikirim.' });
 });
 
+// ---------- BOS: Sistem Darurat ----------
+// Menghentikan semua broadcast yang sedang berjalan. Khusus BOS (dan ADMIN).
+router.post('/boss/emergency-stop', auth, allow('BOS', 'ADMIN'), (_req, res) => {
+  let stopped = 0;
+
+  for (const job of broadcastJobs.values()) {
+    if (!job.finishedAt && !job.cancelled) {
+      job.cancelled = true;
+      stopped += 1;
+    }
+  }
+
+  return res.json({
+    ok: true,
+    stopped,
+    message: stopped
+      ? `${stopped} broadcast dihentikan.`
+      : 'Tidak ada broadcast yang sedang berjalan.',
+  });
+});
+
 // ---------- Withdrawals ----------
 
 router.get('/withdrawals', auth, (req, res) => {
@@ -1066,6 +1105,96 @@ router.patch('/withdrawals/:id/status', auth, allow('ADMIN'), (req, res) => {
 router.get('/users', auth, allow('ADMIN'), (_req, res) => {
   const store = readStore();
   res.json({ ok: true, users: store.users.map(publicUser) });
+});
+
+// ---------- Admin: Monitoring Server ----------
+
+router.get('/admin/monitoring', auth, allow('ADMIN'), (_req, res) => {
+  const store = readStore();
+  const sessions = listWhatsAppSessions();
+  const messages = store.messages || [];
+
+  const mem = process.memoryUsage();
+
+  return res.json({
+    ok: true,
+    uptimeSeconds: Math.round(process.uptime()),
+    memoryMb: Math.round(mem.rss / 1024 / 1024),
+    nodeVersion: process.version,
+    platform: process.platform,
+    sessions,
+    connectedSessions: sessions.filter((s) => s.status === 'connected').length,
+    usersCount: store.users.length,
+    contactsCount: (store.contacts || []).length,
+    templatesCount: (store.templates || []).length,
+    databasesCount: (store.databases || []).length,
+    messagesTotal: messages.length,
+    messagesSent: messages.filter((m) => m.status === 'sent').length,
+    messagesFailed: messages.filter((m) => m.status && m.status !== 'sent').length,
+    pendingWithdrawals: (store.withdrawals || []).filter((w) => w.status === 'PENDING').length,
+    tariff: store.tariff,
+  });
+});
+
+// ---------- BOS: Executive Analytics ----------
+
+router.get('/boss/analytics', auth, allow('BOS', 'ADMIN'), (_req, res) => {
+  const store = readStore();
+  const messages = store.messages || [];
+  const withdrawals = store.withdrawals || [];
+
+  const sent = messages.filter((m) => m.status === 'sent').length;
+  const failed = messages.filter((m) => m.status && m.status !== 'sent').length;
+  const revenue = sent * store.tariff;
+
+  return res.json({
+    ok: true,
+    tariff: store.tariff,
+    messagesTotal: messages.length,
+    messagesSent: sent,
+    messagesFailed: failed,
+    estimatedRevenue: revenue,
+    contactsCount: (store.contacts || []).length,
+    templatesCount: (store.templates || []).length,
+    usersCount: store.users.length,
+    withdrawalsTotal: withdrawals.length,
+    withdrawalsPending: withdrawals.filter((w) => w.status === 'PENDING').length,
+    withdrawalsApproved: withdrawals.filter((w) => w.status === 'APPROVED' || w.status === 'PAID').length,
+    cashflow: [
+      { label: 'Pendapatan (estimasi)', amount: revenue, type: 'in' },
+      { label: 'Withdraw disetujui', amount: withdrawals.filter((w) => w.status === 'APPROVED' || w.status === 'PAID').reduce((sum, w) => sum + Number(w.amount || 0), 0), type: 'out' },
+    ],
+  });
+});
+
+// ---------- BOS: Audit Log Admin ----------
+
+router.get('/boss/audit', auth, allow('BOS', 'ADMIN'), (_req, res) => {
+  const store = readStore();
+
+  const events = [];
+
+  for (const item of store.messages || []) {
+    events.push({
+      at: item.createdAt,
+      actor: item.username || '-',
+      action: 'send_message',
+      detail: `${item.phone} → ${item.status}`,
+    });
+  }
+
+  for (const item of store.withdrawals || []) {
+    events.push({
+      at: item.createdAt,
+      actor: item.username || '-',
+      action: 'withdrawal',
+      detail: `Rp ${item.amount} (${item.status})`,
+    });
+  }
+
+  events.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+
+  return res.json({ ok: true, events: events.slice(0, 100) });
 });
 
 // ---------- WhatsApp: QR connection ----------
@@ -1169,6 +1298,22 @@ router.get('/whatsapp/status', auth, allow('ADMIN', 'BOS'), async (req, res) => 
 
 router.get('/whatsapp/sessions', auth, allow('ADMIN', 'BOS'), (_req, res) => {
   return res.json({ ok: true, sessions: listWhatsAppSessions() });
+});
+
+// ---------- WhatsApp: read-only connection summary (semua role) ----------
+// Halaman USER hanya boleh melihat apakah gateway siap dipakai, tanpa
+// kendali administratif (connect / pairing / logout tetap khusus ADMIN & BOS).
+router.get('/whatsapp/connected', auth, (_req, res) => {
+  const sessions = listWhatsAppSessions();
+  const active = sessions.find((s) => s.status === 'connected') || null;
+
+  return res.json({
+    ok: true,
+    connected: Boolean(active),
+    sessionId: active ? active.sessionId : null,
+    status: active ? active.status : sessions[0] ? sessions[0].status : 'disconnected',
+    totalSessions: sessions.length,
+  });
 });
 
 // ---------- WhatsApp: disconnect / logout ----------
