@@ -69,8 +69,16 @@ Catatan penting:
 - **USER tidak mengelola gateway.** Menu USER hanya menampilkan status koneksi
   (`GET /api/whatsapp/connected`, read-only). Connect / pairing / logout tetap
   khusus ADMIN & BOS. Saat mengirim, sesi aktif yang tersambung dipilih otomatis.
+- **Halaman Kendali Massal (Broadcast) sadar-role.** ADMIN/BOS memilih sesi dari
+  daftar penuh (`GET /api/whatsapp/sessions`); USER hanya melihat sesi aktif
+  secara read-only (dari `/api/whatsapp/connected`) dan backend memilih sesi
+  aktif saat pengiriman. Dengan begitu USER tetap dapat broadcast tanpa akses
+  ke endpoint administratif.
 - **Manajemen Database & Template** adalah fungsi ADMIN/BOS. USER hanya membaca
-  kontak & template aktif yang dipakai untuk pengiriman.
+  kontak & template aktif yang dipakai untuk pengiriman. Tombol "gunakan
+  template" mengarahkan ke halaman Kendali Massal dan mengisi isi pesan.
+- **Berkas unggahan** disimpan di `uploads/` — direktori yang sama yang
+  disajikan server pada rute `/uploads`.
 
 ## 🧩 Struktur Proyek
 ```
@@ -84,7 +92,8 @@ public/
   index.html                # Frontend SPA (Tailwind CDN)
   app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
   assets/                   # Logo & video latar
-data/                       # Penyimpanan runtime (store.json, upload, sesi WA)
+data/                       # Penyimpanan runtime (store.json, sesi WA)
+uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 ```
 
 ## 🛠️ Perintah

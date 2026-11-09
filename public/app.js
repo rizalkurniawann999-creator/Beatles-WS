@@ -970,6 +970,11 @@ function stopPolling() {
         clearInterval(waPollTimer);
         waPollTimer = null;
     }
+
+    if (broadcastPollTimer) {
+        clearInterval(broadcastPollTimer);
+        broadcastPollTimer = null;
+    }
 }
 
 /* --------------------------- Database Nomor ----------------------------- */
@@ -1285,14 +1290,17 @@ async function deleteTemplate(id) {
 
 function useTemplate(content) {
     sessionStorage.setItem('beatles_pending_message', content);
-    loadContent('kirim');
-    toast('Template dimuat ke halaman Kirim Pesan.', 'info');
+    loadContent('broadcast');
+    toast('Template dimuat ke halaman Kendali Massal.', 'info');
 }
 
 /* ------------------------------ Kirim Pesan ----------------------------- */
 
 async function renderSendMessage(content) {
-    const sessionsData = await api('/whatsapp/sessions').catch(() => ({ sessions: [] }));
+    const canManage = ['admin', 'bos'].includes(currentRole());
+    const sessionsData = canManage
+        ? await api('/whatsapp/sessions').catch(() => ({ sessions: [] }))
+        : await api('/whatsapp/connected').catch(() => ({}));
     const sessions = sessionsData.sessions || [];
     const connected = sessions.filter((s) => s.status === 'connected');
     const templates = (await api('/templates').catch(() => ({ templates: [] }))).templates || [];
@@ -1398,8 +1406,29 @@ async function sendSingle(button) {
 let broadcastPollTimer = null;
 
 async function renderBroadcast(content) {
-    const sessionsData = await api('/whatsapp/sessions').catch(() => ({ sessions: [] }));
-    const sessions = sessionsData.sessions || [];
+    const canManage = ['admin', 'bos'].includes(currentRole());
+
+    let sessions = [];
+    let activeSessionId = '';
+    let activeStatus = 'disconnected';
+
+    if (canManage) {
+        const sessionsData = await api('/whatsapp/sessions').catch(() => ({ sessions: [] }));
+        sessions = sessionsData.sessions || [];
+        const preferred = sessions.find((s) => s.status === 'connected') || sessions[0] || null;
+        activeSessionId = preferred ? preferred.sessionId : '';
+        activeStatus = preferred ? preferred.status : 'disconnected';
+    } else {
+        // USER tidak boleh menyentuh endpoint sesi administratif; cukup pakai
+        // ringkasan read-only lalu biarkan backend memilih sesi aktif.
+        const status = await api('/whatsapp/connected').catch(() => ({}));
+        activeSessionId = status.sessionId || '';
+        activeStatus = status.status || 'disconnected';
+    }
+
+    const pendingMessage = sessionStorage.getItem('beatles_pending_message') || '';
+    sessionStorage.removeItem('beatles_pending_message');
+
     const contacts = (await api('/contacts').catch(() => ({ contacts: [] }))).contacts || [];
     const tags = Array.from(new Set(contacts.map((c) => c.tag).filter(Boolean)));
     const templates = (await api('/templates').catch(() => ({ templates: [] }))).templates || [];
@@ -1408,13 +1437,19 @@ async function renderBroadcast(content) {
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div class="lg:col-span-3 glass-panel p-6 rounded-2xl border border-slate-700 shadow-lg">
                 <h4 class="text-xl font-black text-white mb-5"><i class="fas fa-tower-broadcast text-beatles-cyan mr-2"></i> Kendali Massal</h4>
+                ${!canManage && activeStatus !== 'connected' ? `<div class="mb-4 bg-yellow-500/10 border-l-4 border-yellow-500 p-3 rounded-r-lg text-yellow-200 text-sm"><i class="fas fa-triangle-exclamation mr-1"></i> Gateway WhatsApp belum tersambung. Hubungi ADMIN untuk menautkan perangkat sebelum broadcast.</div>` : ''}
                 <div class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Sesi Pengirim</label>
-                            <select id="bc-session" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
+                            <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Sesi Pengirim${canManage ? '' : ' (otomatis)'}</label>
+                            ${canManage
+                                ? `<select id="bc-session" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
                                 ${sessions.length ? sessions.map((s) => `<option value="${escapeHtml(s.sessionId)}" ${s.status === 'connected' ? '' : 'disabled'}>${escapeHtml(s.sessionId)} — ${escapeHtml(s.status)}</option>`).join('') : '<option value="">Tidak ada sesi</option>'}
-                            </select>
+                            </select>`
+                                : `<div id="bc-session-readonly" data-session="${escapeHtml(activeSessionId)}" class="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2.5 px-4 flex items-center justify-between">
+                                <span class="font-mono text-sm text-slate-300">${escapeHtml(activeSessionId || 'Belum ada sesi aktif')}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded border ${waStatusBadge(activeStatus).cls}">${escapeHtml(waStatusBadge(activeStatus).label)}</span>
+                            </div>`}
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Sumber Target</label>
@@ -1440,7 +1475,7 @@ async function renderBroadcast(content) {
                             <label class="text-xs font-semibold text-beatles-cyan uppercase tracking-wider">Isi Pesan</label>
                             ${templates.length ? `<select onchange="if(this.value){document.getElementById('bc-message').value=this.value; this.selectedIndex=0;}" class="text-xs bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-300"><option value="">Pilih template...</option>${templates.map((t) => `<option value="${escapeHtml(t.content)}">${escapeHtml(t.name)}</option>`).join('')}</select>` : ''}
                         </div>
-                        <textarea id="bc-message" rows="5" placeholder="Tulis pesan broadcast..." class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 px-4 text-white focus:border-beatles-cyan focus:outline-none"></textarea>
+                        <textarea id="bc-message" rows="5" placeholder="Tulis pesan broadcast..." class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 px-4 text-white focus:border-beatles-cyan focus:outline-none">${escapeHtml(pendingMessage)}</textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-beatles-cyan mb-2 uppercase tracking-wider">Kecepatan (jeda antar pesan)</label>
@@ -1470,13 +1505,15 @@ function onBroadcastSourceChange() {
 }
 
 async function startBroadcast(button) {
-    const sessionId = document.getElementById('bc-session').value;
+    const sessionSelect = document.getElementById('bc-session');
+    const sessionReadonly = document.getElementById('bc-session-readonly');
+    const sessionId = sessionSelect ? sessionSelect.value : (sessionReadonly ? sessionReadonly.dataset.session : '');
     const source = document.getElementById('bc-source').value;
     const message = document.getElementById('bc-message').value.trim();
     const speedEl = document.querySelector('input[name="bc-speed"]:checked');
     const speed = speedEl ? speedEl.value : 'safe';
 
-    if (!sessionId) {
+    if (sessionSelect && !sessionId) {
         toast('Tidak ada sesi WhatsApp yang bisa dipakai.', 'warn');
         return;
     }
@@ -1485,7 +1522,8 @@ async function startBroadcast(button) {
         return;
     }
 
-    const payload = { sessionId, message, speed };
+    const payload = { message, speed };
+    if (sessionId) payload.sessionId = sessionId;
 
     if (source === 'tag') {
         payload.tag = document.getElementById('bc-tag').value;
