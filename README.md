@@ -79,15 +79,28 @@ Catatan penting:
   template" mengarahkan ke halaman Kendali Massal dan mengisi isi pesan.
 - **Berkas unggahan** disimpan di `uploads/` — direktori yang sama yang
   disajikan server pada rute `/uploads`.
+- **Batas pairing WhatsApp.** Satu nomor hanya boleh meminta pairing code
+  maksimal 4 kali berturut-turut. Bila keempatnya gagal tanpa sempat
+  terhubung, nomor dikunci sementara selama 10 menit (respons HTTP 429 dengan
+  header `Retry-After`). Penghitung di-reset begitu pairing berhasil. Permintaan
+  pairing berulang memakai ulang sesi `code` yang sama agar tidak menumpuk sesi.
+- **Kepemilikan broadcast.** USER hanya bisa melihat status dan membatalkan
+  broadcast miliknya sendiri; mencoba mengakses broadcast USER lain
+  menghasilkan 403. ADMIN/BOS dapat melihat semua broadcast.
 
 ## 🧩 Struktur Proyek
 ```
 src/
-  server.js                 # Entry point Express + static frontend
+  server.js                 # Entry point Express + static frontend + rate limit
+  store.js                  # Baca/tulis data/store.json + seed default (memoized)
   routes/
     api.js                  # REST API (auth, dashboard, admin, whatsapp, dll)
     whatsapp/
       client.js             # Integrasi Baileys (QR, pairing code, kirim pesan)
+      pairing-limit.js      # Pembatas 4x pairing berturut-turut + cooldown
+  utils/
+    helpers.js              # Validasi nomor/sesi, sanitasi nama berkas, asyncHandler
+    translate.js            # Terjemahan pesan (endpoint /api/translate)
 public/
   index.html                # Frontend SPA (Tailwind CDN)
   app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
@@ -100,6 +113,51 @@ uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 - `npm start` — menjalankan server produksi.
 - `npm run dev` — menjalankan server dengan `--watch`.
 - `npm run check` — validasi sintaks semua berkas sumber.
+- `npm test` — uji unit (pembatas pairing, helper keamanan, ketahanan server).
+- `npm run test:e2e` — uji API end-to-end (RBAC + kepemilikan broadcast). Server harus sudah jalan.
+
+## 🚀 Deploy
+
+Beatles-WS terdiri dari dua bagian yang di-host terpisah:
+
+1. **Frontend statis** (`public/`: `index.html`, `app.js`, `assets/`) → **Netlify**.
+2. **Backend Node.js** (Express + REST API `/api/*` + gateway WebSocket Baileys)
+   → VPS / Render / Railway / Fly.io (butuh disk & WebSocket persisten; Netlify
+   Functions tidak cocok untuk Baileys).
+
+### Frontend ke Netlify
+
+Konfigurasi ada di [`netlify.toml`](netlify.toml) (publish `public/`, tanpa build
+step, SPA fallback, header keamanan).
+
+Cara cepat:
+
+```bash
+# Opsi 1: lewat dashboard — hubungkan repo GitHub, Netlify membaca netlify.toml.
+# Opsi 2: lewat CLI:
+npm i -g netlify-cli
+netlify deploy --dir=public --prod
+```
+
+Situs statis langsung jalan (login/dashboard/pairing/Stok DB berjalan di
+browser). Untuk menyambungkannya ke backend Node, lihat bagian berikut.
+
+### Backend Node.js
+
+```bash
+npm ci
+npm start        # default http://localhost:3000
+```
+
+Set `CORS_ORIGIN` di `.env` ke domain Netlify Anda agar API hanya menerima
+permintaan dari frontend resmi, contoh:
+
+```
+CORS_ORIGIN=https://nama-situs.netlify.app
+```
+
+Bila ingin frontend dan API tampak satu origin (menghindari CORS), aktifkan
+contoh proxy `/api/*` di `netlify.toml` dan arahkan ke domain backend Anda.
 
 ## 📡 Ringkasan API
 Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Authorization: Bearer <token>`.
@@ -146,4 +204,6 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | GET    | `/api/whatsapp/sessions`      | ADMIN, BOS |
 | POST   | `/api/whatsapp/disconnect`    | ADMIN, BOS |
 | POST   | `/api/whatsapp/logout`        | ADMIN, BOS |
+| GET    | `/api/translate/languages`    | Login      |
+| POST   | `/api/translate`              | Login      |
 

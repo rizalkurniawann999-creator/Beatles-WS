@@ -47,21 +47,48 @@ const apiLimiter = rateLimit({
   message: { ok: false, error: 'Terlalu banyak permintaan. Coba lagi sebentar.' },
 });
 
-const authLimiter = rateLimit({
+// Login: hitung SEMUA percobaan (bukan hanya yang gagal) untuk meredam
+// credential stuffing / brute force.
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 30,
+  limit: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { ok: false, error: 'Terlalu banyak percobaan masuk. Coba lagi nanti.' },
+  message: { ok: false, error: 'Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.' },
 });
 
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+// Registrasi: batas ketat & menghitung semua percobaan agar akun tidak bisa
+// dibuat massal (sebelumnya percobaan sukses tidak dihitung).
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { ok: false, error: 'Terlalu banyak pendaftaran dari jaringan ini. Coba lagi nanti.' },
+});
+
+// Translate memanggil layanan luar; batasi agar tidak dijadikan proxy gratis.
+const translateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 40,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { ok: false, error: 'Terlalu banyak permintaan terjemahan. Coba lagi sebentar.' },
+});
+
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/register', registerLimiter);
+app.use('/api/translate', translateLimiter);
 app.use('/api', apiLimiter);
 
-// Frontend statis & folder media.
+// Frontend statis & folder media. Folder unggahan disajikan tanpa eksekusi:
+// dotfiles ditolak dan header nosniff (dari helmet) mencegah konten di-sniff
+// sebagai HTML/JS.
 app.use(express.static(path.join(__dirname, '../public')));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'), { dotfiles: 'deny', index: false })
+);
 
 // Router API utama.
 app.use('/api', apiRouter);
@@ -83,7 +110,29 @@ app.use((error, _req, res, _next) => {
 
   if (res.headersSent) return;
 
-  res.status(500).json({ ok: false, error: 'Terjadi kesalahan pada server.' });
+  // Body JSON rusak / terlalu besar.
+  if (error.type === 'entity.too.large') {
+    return res.status(413).json({ ok: false, error: 'Payload terlalu besar.' });
+  }
+
+  if (error.type === 'entity.parse.failed' || error instanceof SyntaxError) {
+    return res.status(400).json({ ok: false, error: 'Body JSON tidak valid.' });
+  }
+
+  // Error dari multer (unggahan berkas).
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ ok: false, error: 'Ukuran berkas melebihi 10MB.' });
+  }
+
+  if (error.code === 'UNSUPPORTED_FILE_TYPE') {
+    return res.status(415).json({ ok: false, error: error.message });
+  }
+
+  if (error.name === 'MulterError') {
+    return res.status(400).json({ ok: false, error: `Unggahan tidak valid: ${error.message}` });
+  }
+
+  return res.status(500).json({ ok: false, error: 'Terjadi kesalahan pada server.' });
 });
 
 const PORT = process.env.PORT || 3000;
@@ -121,5 +170,21 @@ function shutdown(signal) {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// Jaring pengaman: satu error tak tertangani tidak boleh mematikan seluruh
+// server. Di Node modern, error di handler async (mis. event Baileys) adalah
+// unhandled rejection yang default-nya MEMBUNUH proses — tanpa ini, gateway
+// mati mendadak sehingga klien melihat "sesi berakhir" padahal token masih
+// sah. Kami catat lalu tetap melayani agar layanan tetap hidup.
+process.on('unhandledRejection', (reason) => {
+  console.error(
+    '[BEATLES-WS] Unhandled rejection:',
+    reason instanceof Error ? reason.message : reason
+  );
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[BEATLES-WS] Uncaught exception:', error.message);
+});
 
 module.exports = { app, server };

@@ -7,3 +7,6 @@ data/store.json
 data/uploads/
 data/whatsapp-auth/
 .DS_Store
+
+# Netlify: cache & konfigurasi lokal (jangan pernah di-commit)
+.netlify/

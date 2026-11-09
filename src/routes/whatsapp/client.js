@@ -12,6 +12,13 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  MAX_PAIRING_ATTEMPTS,
+  assertPairingAllowed,
+  registerPairingAttempt,
+  resetPairingAttempts,
+} = require('./pairing-limit');
+
 const authRoot = path.join(process.cwd(), 'data', 'whatsapp-auth');
 const sessions = new Map();
 
@@ -82,6 +89,12 @@ function getStatus(sessionId) {
     connected: session.status === 'connected',
     qr: session.qr || null,
     pairingCode: session.pairingCode || null,
+    pairingAttempt: session.pairingAttempt || 0,
+    pairingMaxAttempts: MAX_PAIRING_ATTEMPTS,
+    pairingRemaining: Math.max(
+      MAX_PAIRING_ATTEMPTS - (session.pairingAttempt || 0),
+      0
+    ),
     error: session.error || null,
     mode: session.mode || null,
     me: session.me || null,
@@ -228,106 +241,121 @@ async function createSocket(session) {
     socket.ev.on('creds.update', onCredsUpdate);
 
     socket.ev.on('connection.update', async (update) => {
-      if (!isCurrent()) return;
+      try {
+        if (!isCurrent()) return;
 
-      const { connection, qr, lastDisconnect } = update;
+        const { connection, qr, lastDisconnect } = update;
 
-      if (qr && session.mode === 'qr') {
-        session.qr = qr;
-        session.pairingCode = null;
-        session.status = 'qr';
-        session.error = null;
+        if (qr && session.mode === 'qr') {
+          session.qr = qr;
+          session.pairingCode = null;
+          session.status = 'qr';
+          session.error = null;
 
-        console.log(`[BEATLES-WS] QR siap untuk session ${session.id}`);
-      }
-
-      if (connection === 'connecting') {
-        if (!session.qr && session.status !== 'pairing_code') {
-          session.status = 'connecting';
+          console.log(`[BEATLES-WS] QR siap untuk session ${session.id}`);
         }
-      }
 
-      if (connection === 'open') {
-        clearReconnectTimer(session);
-        session.status = 'connected';
-        session.qr = null;
-        session.pairingCode = null;
-        session.error = null;
-        session.reconnectAttempts = 0;
-        session.me = socket.user
-          ? {
-              id: socket.user.id || null,
-              name: socket.user.name || null,
-            }
-          : null;
-
-        console.log(`[BEATLES-WS] WhatsApp terhubung: ${session.id}`);
-      }
-
-      if (connection === 'close') {
-        const statusCode =
-          lastDisconnect?.error?.output?.statusCode ??
-          lastDisconnect?.error?.data?.statusCode ??
-          null;
-
-        console.warn(
-          `[BEATLES-WS] Koneksi ditutup: ${session.id}; kode=${statusCode ?? 'tidak diketahui'}`
-        );
-
-        // Jangan biarkan listener lama ikut memproses penutupan.
-        detachListeners(socket);
-        if (session.socket === socket) {
-          session.socket = null;
+        if (connection === 'connecting') {
+          if (!session.qr && session.status !== 'pairing_code') {
+            session.status = 'connecting';
+          }
         }
-        session.qr = null;
-        session.pairingCode = null;
 
-        if (statusCode === 401) {
-          session.status = 'logged_out';
-          session.error =
-            'Autentikasi ditolak WhatsApp. Tekan hubungkan lagi untuk memulai autentikasi baru.';
+        if (connection === 'open') {
+          clearReconnectTimer(session);
+          session.status = 'connected';
+          session.qr = null;
+          session.pairingCode = null;
+          session.error = null;
+          session.reconnectAttempts = 0;
+
+          // Pairing sukses: bersihkan riwayat percobaan untuk nomor ini.
+          if (session.pendingPairingNumber) {
+            resetPairingAttempts(session.pendingPairingNumber);
+            session.pendingPairingNumber = null;
+          }
+          session.pairingAttempt = 0;
+
+          session.me = socket.user
+            ? {
+                id: socket.user.id || null,
+                name: socket.user.name || null,
+              }
+            : null;
+
+          console.log(`[BEATLES-WS] WhatsApp terhubung: ${session.id}`);
+        }
+
+        if (connection === 'close') {
+          const statusCode =
+            lastDisconnect?.error?.output?.statusCode ??
+            lastDisconnect?.error?.data?.statusCode ??
+            null;
 
           console.warn(
-            `[BEATLES-WS] Session ${session.id} perlu autentikasi ulang.`
+            `[BEATLES-WS] Koneksi ditutup: ${session.id}; kode=${statusCode ?? 'tidak diketahui'}`
           );
 
-          return;
-        }
+          // Jangan biarkan listener lama ikut memproses penutupan.
+          detachListeners(socket);
+          if (session.socket === socket) {
+            session.socket = null;
+          }
+          session.qr = null;
+          session.pairingCode = null;
 
-        const shouldReconnect =
-          !session.stopped &&
-          sessions.get(session.id) === session &&
-          (statusCode === null ||
-            RESTARTABLE_STATUS_CODES.includes(statusCode));
+          if (statusCode === 401) {
+            session.status = 'logged_out';
+            session.error =
+              'Autentikasi ditolak WhatsApp. Tekan hubungkan lagi untuk memulai autentikasi baru.';
 
-        if (shouldReconnect) {
-          if (session.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-            session.status = 'disconnected';
-            session.error = 'Batas percobaan koneksi ulang tercapai.';
+            console.warn(
+              `[BEATLES-WS] Session ${session.id} perlu autentikasi ulang.`
+            );
+
             return;
           }
 
-          session.reconnectAttempts += 1;
-          session.status = 'reconnecting';
+          const shouldReconnect =
+            !session.stopped &&
+            sessions.get(session.id) === session &&
+            (statusCode === null ||
+              RESTARTABLE_STATUS_CODES.includes(statusCode));
 
-          const delay = Math.min(session.reconnectAttempts * 2000, 15000);
-
-          session.reconnectTimer = setTimeout(() => {
-            session.reconnectTimer = null;
-            createSocket(session).catch((error) => {
+          if (shouldReconnect) {
+            if (session.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
               session.status = 'disconnected';
-              session.error = error.message;
+              session.error = 'Batas percobaan koneksi ulang tercapai.';
+              return;
+            }
 
-              console.error(
-                `[BEATLES-WS] Gagal reconnect ${session.id}:`,
-                error.message
-              );
-            });
-          }, delay);
-        } else {
-          session.status = 'disconnected';
-          session.error = `Koneksi terputus${statusCode ? ` (${statusCode})` : ''}.`;
+            session.reconnectAttempts += 1;
+            session.status = 'reconnecting';
+
+            const delay = Math.min(session.reconnectAttempts * 2000, 15000);
+
+            session.reconnectTimer = setTimeout(() => {
+              session.reconnectTimer = null;
+              createSocket(session).catch((error) => {
+                session.status = 'disconnected';
+                session.error = error.message;
+
+                console.error(
+                  `[BEATLES-WS] Gagal reconnect ${session.id}:`,
+                  error.message
+                );
+              });
+            }, delay);
+          } else {
+            session.status = 'disconnected';
+            session.error = `Koneksi terputus${statusCode ? ` (${statusCode})` : ''}.`;
+          }
         }
+      } catch (error) {
+        console.error(
+          `[BEATLES-WS] Gagal memproses pembaruan koneksi ${session.id}:`,
+          error.message
+        );
       }
     });
   } catch (error) {
@@ -405,6 +433,8 @@ async function startSession(sessionId, mode = 'qr') {
     generation: 0,
     reconnectTimer: null,
     reconnectAttempts: 0,
+    pendingPairingNumber: null,
+    pairingAttempt: 0,
   };
 
   sessions.set(sessionId, session);
@@ -477,6 +507,10 @@ async function requestPairingCode(sessionId, phoneNumber) {
     );
   }
 
+  // Cek kuota sebelum menyentuh socket: bila nomor sedang dikunci, tolak lebih
+  // awal agar tidak memboroskan percobaan WhatsApp.
+  assertPairingAllowed(number);
+
   let session = sessions.get(sessionId);
 
   if (!session || session.mode !== 'code') {
@@ -510,6 +544,12 @@ async function requestPairingCode(sessionId, phoneNumber) {
 
   const code = await session.socket.requestPairingCode(number);
 
+  // Pairing code berhasil diminta: catat percobaan. Nomor dikunci sementara
+  // setelah 4 percobaan berturut-turut (pengecekan dilakukan di awal).
+  session.pendingPairingNumber = number;
+  const quota = registerPairingAttempt(number);
+  session.pairingAttempt = quota.count;
+
   session.pairingCode = code;
   session.qr = null;
   session.status = 'pairing_code';
@@ -518,6 +558,9 @@ async function requestPairingCode(sessionId, phoneNumber) {
     sessionId,
     status: session.status,
     pairingCode: code,
+    attempt: quota.count,
+    maxAttempts: MAX_PAIRING_ATTEMPTS,
+    remaining: Math.max(MAX_PAIRING_ATTEMPTS - quota.count, 0),
   };
 }
 
@@ -728,6 +771,26 @@ function listWhatsAppSessions() {
 }
 
 /**
+ * Mencari sesi mode 'code' yang belum terdaftar dan masih hidup. Dipakai agar
+ * permintaan pairing berulang memakai sesi yang sama, bukan menumpuk sesi baru
+ * yang akhirnya menghabiskan kuota MAX_ACTIVE_SESSIONS.
+ */
+function findReusableCodeSession() {
+  for (const session of sessions.values()) {
+    if (
+      session.mode === 'code' &&
+      !session.stopped &&
+      !session.authState.creds.registered &&
+      session.status !== 'connected'
+    ) {
+      return session.id;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Memutus socket sebuah session TANPA menghapus kredensial,
  * sehingga bisa disambungkan kembali nanti tanpa scan ulang.
  */
@@ -800,6 +863,7 @@ module.exports = {
   checkNumber,
   getWhatsAppStatus,
   listWhatsAppSessions,
+  findReusableCodeSession,
   disconnectWhatsApp,
   logoutWhatsApp,
   shutdownAllSessions,
