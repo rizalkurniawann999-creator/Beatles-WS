@@ -50,6 +50,28 @@ Akun berikut otomatis dibuat saat server pertama kali dijalankan (lihat `src/rou
 
 > **Penting:** ganti kata sandi bawaan dan `JWT_SECRET` sebelum dipakai di produksi.
 
+## 🔐 Pemisahan Hak Akses (Role)
+
+Setiap role memiliki halaman sendiri. Fitur administratif tidak pernah muncul di
+halaman USER, dan sebaliknya. Frontend (`public/app.js`) memetakan menu per role
+lewat `ROLE_NAV`, dan `loadContent()` menolak halaman yang tidak terdaftar untuk
+role tersebut. Backend menegakkan aturan yang sama lewat middleware `auth` +
+`allow(...)`.
+
+| Role  | Halaman                                                                 |
+| ----- | ----------------------------------------------------------------------- |
+| USER  | Dashboard, WhatsApp Pengirim, Kendali Massal, Afiliasi Referral, Tarik Saldo |
+| ADMIN | Monitoring Server, Gateway WhatsApp, Manajemen User, Database Nomor, Unggah Database, Template Pesan, Persetujuan Withdraw, Pengaturan Sistem |
+| BOS   | Executive Analytics, Laporan Arus Kas, Audit Log Admin, Sistem Darurat  |
+
+Catatan penting:
+
+- **USER tidak mengelola gateway.** Menu USER hanya menampilkan status koneksi
+  (`GET /api/whatsapp/connected`, read-only). Connect / pairing / logout tetap
+  khusus ADMIN & BOS. Saat mengirim, sesi aktif yang tersambung dipilih otomatis.
+- **Manajemen Database & Template** adalah fungsi ADMIN/BOS. USER hanya membaca
+  kontak & template aktif yang dipakai untuk pengiriman.
+
 ## 🧩 Struktur Proyek
 ```
 src/
@@ -81,10 +103,10 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | GET    | `/api/auth/me`                | Login      |
 | GET    | `/api/dashboard`              | Login      |
 | GET    | `/api/contacts`               | Login      |
-| POST   | `/api/contacts`               | Login      |
-| PATCH  | `/api/contacts/:id`           | Login      |
-| DELETE | `/api/contacts/:id`           | Login      |
-| POST   | `/api/contacts/import`        | Login      |
+| POST   | `/api/contacts`               | ADMIN, BOS |
+| PATCH  | `/api/contacts/:id`           | ADMIN, BOS |
+| DELETE | `/api/contacts/:id`           | ADMIN, BOS |
+| POST   | `/api/contacts/import`        | ADMIN, BOS |
 | POST   | `/api/contacts/check`         | Login      |
 | POST   | `/api/send-message`           | Login      |
 | GET    | `/api/messages`               | Login      |
@@ -104,6 +126,11 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | POST   | `/api/withdrawals`            | USER       |
 | PATCH  | `/api/withdrawals/:id/status` | ADMIN      |
 | GET    | `/api/users`                  | ADMIN      |
+| GET    | `/api/admin/monitoring`       | ADMIN      |
+| GET    | `/api/boss/analytics`         | ADMIN, BOS |
+| GET    | `/api/boss/audit`             | ADMIN, BOS |
+| POST   | `/api/boss/emergency-stop`    | ADMIN, BOS |
+| GET    | `/api/whatsapp/connected`     | Login      |
 | POST   | `/api/whatsapp/connect`       | ADMIN, BOS |
 | POST   | `/api/whatsapp/pairing-code`  | ADMIN, BOS |
 | GET    | `/api/whatsapp/status`        | ADMIN, BOS |
