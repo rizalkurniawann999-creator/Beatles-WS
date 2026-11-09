@@ -42,3 +42,17 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
   (ADMIN `ws-beatles-admin` / `ws-admin770088`, BOS `ws-beatles-boss` /
   `ws-boss7002043`). Do not commit `data/store.json` or WA auth dirs.
 - Validate phone numbers (8–15 digits) BEFORE creating a Baileys socket.
+
+## Cloudflare (deploy/tunnel)
+
+- `cloudflared` installed via `npm run cf:install` (Debian `.deb` from
+  GitHub releases). `npm run cf:status` reports readiness without leaking tokens.
+- The app is a **stateful Node server** (API + Baileys WebSocket), so
+  **Cloudflare Tunnel is the primary method**, not Pages/Workers. Pages only
+  hosts the static `public/` folder.
+- Scripts live in `cloudflare/scripts/`; `load-env.sh` sources `.env` without
+  overwriting existing env vars. Tokens are read only from env
+  (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_TUNNEL_TOKEN`) — never committed.
+- `npm run tunnel:quick` (no login) or `npm run tunnel:start` (named, token).
+- Auto-deploy: `.github/workflows/deploy-cloudflare.yml` deploys `public/` to
+  Pages on push to `main`, gated on the `CLOUDFLARE_API_TOKEN` secret.
