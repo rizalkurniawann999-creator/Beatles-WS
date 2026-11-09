@@ -1,13 +1,29 @@
 'use strict';
 
+/**
+ * Beatles-WS WhatsApp gateway (Baileys).
+ *
+ * Mengelola banyak "session" (perangkat tertaut). Setiap session punya satu
+ * socket Baileys. Modul ini menjaga lifecycle socket tetap bersih sehingga
+ * scan QR / pairing code bisa diulang berkali-kali tanpa dobel event listener,
+ * tanpa memory leak, dan tanpa memutus session lain yang sedang aktif.
+ */
+
 const fs = require('fs');
 const path = require('path');
 
 const authRoot = path.join(process.cwd(), 'data', 'whatsapp-auth');
 const sessions = new Map();
 
+const MAX_ACTIVE_SESSIONS = 4;
+const MAX_RECONNECT_ATTEMPTS = 8;
+const RESTARTABLE_STATUS_CODES = [408, 428, 440, 500, 503, 515];
+
 let baileysPromise;
 
+/**
+ * Memuat modul Baileys secara lazy (ESM) dan men-cache hasilnya.
+ */
 async function loadBaileys() {
   if (!baileysPromise) {
     baileysPromise = import('@whiskeysockets/baileys').catch((error) => {
@@ -24,6 +40,7 @@ async function loadBaileys() {
     useMultiFileAuthState: baileys.useMultiFileAuthState,
     fetchLatestBaileysVersion: baileys.fetchLatestBaileysVersion,
     isJidUser: baileys.isJidUser,
+    DisconnectReason: baileys.DisconnectReason,
   };
 }
 
@@ -53,6 +70,9 @@ function getStatus(sessionId) {
       qr: null,
       pairingCode: null,
       error: null,
+      mode: null,
+      me: null,
+      reconnectAttempts: 0,
     };
   }
 
@@ -63,6 +83,9 @@ function getStatus(sessionId) {
     qr: session.qr || null,
     pairingCode: session.pairingCode || null,
     error: session.error || null,
+    mode: session.mode || null,
+    me: session.me || null,
+    reconnectAttempts: session.reconnectAttempts || 0,
   };
 }
 
@@ -73,7 +96,28 @@ function clearReconnectTimer(session) {
   }
 }
 
-function stopSocket(session) {
+/**
+ * Melepas semua listener dari socket lama. Wajib dipanggil sebelum socket
+ * dibuang supaya tidak ada listener "hantu" yang menahan referensi (leak).
+ */
+function detachListeners(socket) {
+  if (!socket || !socket.ev) return;
+
+  for (const event of ['connection.update', 'creds.update', 'messages.upsert']) {
+    try {
+      socket.ev.removeAllListeners(event);
+    } catch {
+      // Socket sudah tertutup, abaikan.
+    }
+  }
+}
+
+/**
+ * Menghentikan socket milik sebuah session dengan bersih.
+ * @param {object} session
+ * @param {{ logout?: boolean }} [options]
+ */
+function stopSocket(session, options = {}) {
   if (!session) return;
 
   clearReconnectTimer(session);
@@ -81,15 +125,26 @@ function stopSocket(session) {
   const socket = session.socket;
   session.socket = null;
 
-  if (socket) {
-    try {
+  if (!socket) return;
+
+  detachListeners(socket);
+
+  try {
+    if (options.logout && typeof socket.logout === 'function') {
+      socket.logout().catch(() => {});
+    } else {
       socket.end(new Error('Socket dihentikan untuk memulai ulang.'));
-    } catch {
-      // Socket mungkin sudah tertutup.
     }
+  } catch {
+    // Socket mungkin sudah tertutup.
   }
 }
 
+/**
+ * Membuat (atau membuat ulang) socket Baileys untuk sebuah session.
+ * Dilindungi oleh "generation" counter agar callback dari socket lama
+ * diabaikan, sehingga reconnect berturut-turut tidak saling menimpa.
+ */
 async function createSocket(session) {
   if (session.stopped || sessions.get(session.id) !== session) {
     return;
@@ -98,6 +153,9 @@ async function createSocket(session) {
   if (session.creatingSocket) return;
 
   session.creatingSocket = true;
+
+  const generation = (session.generation || 0) + 1;
+  session.generation = generation;
 
   try {
     const {
@@ -125,6 +183,11 @@ async function createSocket(session) {
       return;
     }
 
+    // Bersihkan socket lama (bila ada) sebelum membuat yang baru.
+    if (session.socket) {
+      stopSocket(session);
+    }
+
     const socketOptions = {
       auth: session.authState,
       browser: Browsers.ubuntu('Chrome'),
@@ -133,6 +196,7 @@ async function createSocket(session) {
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       retryRequestDelayMs: 250,
+      syncFullHistory: false,
     };
 
     if (version) {
@@ -145,16 +209,26 @@ async function createSocket(session) {
     session.status = 'connecting';
     session.error = null;
 
-    socket.ev.on('creds.update', session.saveCreds);
+    const isCurrent = () =>
+      !session.stopped &&
+      sessions.get(session.id) === session &&
+      session.generation === generation &&
+      session.socket === socket;
+
+    const onCredsUpdate = () => {
+      if (!isCurrent()) return;
+
+      Promise.resolve(session.saveCreds()).catch((error) => {
+        console.error(
+          `[BEATLES-WS] Gagal menyimpan kredensial ${session.id}: ${error.message}`
+        );
+      });
+    };
+
+    socket.ev.on('creds.update', onCredsUpdate);
 
     socket.ev.on('connection.update', async (update) => {
-      if (
-        session.stopped ||
-        sessions.get(session.id) !== session ||
-        session.socket !== socket
-      ) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       const { connection, qr, lastDisconnect } = update;
 
@@ -180,15 +254,17 @@ async function createSocket(session) {
         session.pairingCode = null;
         session.error = null;
         session.reconnectAttempts = 0;
+        session.me = socket.user
+          ? {
+              id: socket.user.id || null,
+              name: socket.user.name || null,
+            }
+          : null;
 
         console.log(`[BEATLES-WS] WhatsApp terhubung: ${session.id}`);
       }
 
       if (connection === 'close') {
-        session.socket = null;
-        session.qr = null;
-        session.pairingCode = null;
-
         const statusCode =
           lastDisconnect?.error?.output?.statusCode ??
           lastDisconnect?.error?.data?.statusCode ??
@@ -197,6 +273,14 @@ async function createSocket(session) {
         console.warn(
           `[BEATLES-WS] Koneksi ditutup: ${session.id}; kode=${statusCode ?? 'tidak diketahui'}`
         );
+
+        // Jangan biarkan listener lama ikut memproses penutupan.
+        detachListeners(socket);
+        if (session.socket === socket) {
+          session.socket = null;
+        }
+        session.qr = null;
+        session.pairingCode = null;
 
         if (statusCode === 401) {
           session.status = 'logged_out';
@@ -210,17 +294,14 @@ async function createSocket(session) {
           return;
         }
 
-        const restartableCodes = [408, 428, 440, 500, 503, 515];
         const shouldReconnect =
           !session.stopped &&
           sessions.get(session.id) === session &&
-          (
-            statusCode === null ||
-            restartableCodes.includes(statusCode)
-          );
+          (statusCode === null ||
+            RESTARTABLE_STATUS_CODES.includes(statusCode));
 
         if (shouldReconnect) {
-          if (session.reconnectAttempts >= 8) {
+          if (session.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
             session.status = 'disconnected';
             session.error = 'Batas percobaan koneksi ulang tercapai.';
             return;
@@ -229,10 +310,7 @@ async function createSocket(session) {
           session.reconnectAttempts += 1;
           session.status = 'reconnecting';
 
-          const delay = Math.min(
-            session.reconnectAttempts * 2000,
-            15000
-          );
+          const delay = Math.min(session.reconnectAttempts * 2000, 15000);
 
           session.reconnectTimer = setTimeout(() => {
             session.reconnectTimer = null;
@@ -267,6 +345,9 @@ async function createSocket(session) {
   }
 }
 
+/**
+ * Memulai (atau memulai ulang) sebuah session dengan mode qr/code.
+ */
 async function startSession(sessionId, mode = 'qr') {
   validateSessionId(sessionId);
 
@@ -274,9 +355,9 @@ async function startSession(sessionId, mode = 'qr') {
     throw new Error('Mode koneksi harus qr atau code.');
   }
 
-  let existing = sessions.get(sessionId);
+  const existing = sessions.get(sessionId);
 
-  if (existing && existing.status === 'connected') {
+  if (existing && existing.status === 'connected' && existing.mode === mode) {
     return getStatus(sessionId);
   }
 
@@ -318,8 +399,10 @@ async function startSession(sessionId, mode = 'qr') {
     qr: null,
     pairingCode: null,
     error: null,
+    me: null,
     stopped: false,
     creatingSocket: false,
+    generation: 0,
     reconnectTimer: null,
     reconnectAttempts: 0,
   };
@@ -331,6 +414,9 @@ async function startSession(sessionId, mode = 'qr') {
   return getStatus(sessionId);
 }
 
+/**
+ * Membuat session baru dengan ID otomatis (device-01, device-02, ...).
+ */
 async function createNewWhatsAppSession(mode = 'qr') {
   if (!['qr', 'code'].includes(mode)) {
     throw new Error('Mode koneksi harus qr atau code.');
@@ -348,9 +434,9 @@ async function createNewWhatsAppSession(mode = 'qr') {
     activeStatuses.has(session.status)
   ).length;
 
-  if (activeCount >= 4) {
+  if (activeCount >= MAX_ACTIVE_SESSIONS) {
     throw new Error(
-      'Sudah ada 4 session aktif atau menunggu pairing. Putuskan session yang tidak dipakai atau periksa perangkat tertaut WhatsApp.'
+      `Sudah ada ${MAX_ACTIVE_SESSIONS} session aktif atau menunggu pairing. Putuskan session yang tidak dipakai atau periksa perangkat tertaut WhatsApp.`
     );
   }
 
@@ -399,9 +485,7 @@ async function requestPairingCode(sessionId, phoneNumber) {
   }
 
   if (!session || !session.socket) {
-    throw new Error(
-      'Socket belum siap. Tunggu sebentar lalu coba lagi.'
-    );
+    throw new Error('Socket belum siap. Tunggu sebentar lalu coba lagi.');
   }
 
   if (session.status === 'connected') {
@@ -437,45 +521,200 @@ async function requestPairingCode(sessionId, phoneNumber) {
   };
 }
 
-// ---------- Real-time Message Sending & Anti-Shadowban Validation ----------
+/**
+ * Memetakan error pengiriman Baileys menjadi status yang mudah dibaca
+ * dashboard (deteksi indikasi blokir / pembatasan / nomor tidak valid).
+ */
+function classifySendError(error) {
+  const statusCode =
+    error?.output?.statusCode ?? error?.data?.statusCode ?? null;
+  const message = String(error?.message || '').toLowerCase();
 
-async function sendMessage(sessionId = 'device-01', recipient, text, options = {}) {
+  if (statusCode === 403 || message.includes('forbidden')) {
+    return {
+      status: 'likely_blocked',
+      reason: 'blocked_or_forbidden',
+      statusCode,
+      detail:
+        'Pesan ditolak (403). Nomor tujuan kemungkinan memblokir pengirim atau akun dibatasi.',
+    };
+  }
+
+  if (
+    statusCode === 401 ||
+    message.includes('not-authorized') ||
+    message.includes('unauthorized')
+  ) {
+    return {
+      status: 'unauthorized',
+      reason: 'unauthorized',
+      statusCode,
+      detail: 'Sesi tidak berwenang. Coba hubungkan ulang perangkat WhatsApp.',
+    };
+  }
+
+  if (statusCode === 404 || message.includes('not found')) {
+    return {
+      status: 'not_registered',
+      reason: 'not_registered',
+      statusCode,
+      detail: 'Nomor tujuan tidak ditemukan di WhatsApp.',
+    };
+  }
+
+  if (statusCode === 429 || message.includes('rate')) {
+    return {
+      status: 'rate_limited',
+      reason: 'rate_limited',
+      statusCode,
+      detail: 'Terlalu banyak permintaan. Perlambat jeda pengiriman.',
+    };
+  }
+
+  return {
+    status: 'failed',
+    reason: 'send_failed',
+    statusCode,
+    detail: error?.message || 'Pengiriman gagal.',
+  };
+}
+
+/**
+ * Memeriksa validitas/status sebuah nomor WhatsApp (terdaftar atau tidak).
+ * Berguna untuk mendeteksi nomor tidak valid atau terindikasi dibatasi.
+ */
+async function checkNumber(sessionId, phone) {
   validateSessionId(sessionId);
+
   const session = sessions.get(sessionId);
 
   if (!session || session.status !== 'connected' || !session.socket) {
-    throw new Error('Sesi WhatsApp belum terhubung.');
+    const error = new Error('Sesi WhatsApp belum terhubung.');
+    error.code = 'NOT_CONNECTED';
+    throw error;
+  }
+
+  const clean = String(phone || '').replace(/\D/g, '');
+
+  if (clean.length < 8 || clean.length > 15) {
+    return {
+      phone: clean,
+      valid: false,
+      status: 'invalid_format',
+      reason: 'Format nomor tidak valid.',
+    };
+  }
+
+  const jid = `${clean}@s.whatsapp.net`;
+
+  try {
+    const [result] = await session.socket.onWhatsApp(jid);
+
+    if (result && result.exists) {
+      return {
+        phone: clean,
+        jid: result.jid || jid,
+        valid: true,
+        status: 'registered',
+        reason: 'Nomor terdaftar di WhatsApp.',
+      };
+    }
+
+    return {
+      phone: clean,
+      jid,
+      valid: false,
+      status: 'not_registered',
+      reason:
+        'Nomor tidak terdaftar di WhatsApp (kemungkinan salah, nonaktif, atau dibatasi).',
+    };
+  } catch (error) {
+    return {
+      phone: clean,
+      jid,
+      valid: false,
+      status: 'unknown',
+      reason: error.message || 'Gagal memeriksa nomor.',
+    };
+  }
+}
+
+/**
+ * Mengirim satu pesan teks/media ke satu nomor.
+ * Mengembalikan objek hasil yang kaya info untuk dashboard & log.
+ */
+async function sendMessage(sessionId = 'device-01', recipient, text, options = {}) {
+  validateSessionId(sessionId);
+
+  const session = sessions.get(sessionId);
+
+  if (!session || session.status !== 'connected' || !session.socket) {
+    const error = new Error('Sesi WhatsApp belum terhubung.');
+    error.code = 'NOT_CONNECTED';
+    throw error;
   }
 
   const cleanPhone = String(recipient || '').replace(/\D/g, '');
-  if (!cleanPhone || cleanPhone.length < 8) {
-    return { success: false, reason: 'invalid_number' };
+
+  if (!cleanPhone || cleanPhone.length < 8 || cleanPhone.length > 15) {
+    return {
+      success: false,
+      status: 'invalid_format',
+      reason: 'invalid_number',
+      phone: cleanPhone,
+      detail: 'Format nomor tidak valid.',
+    };
   }
 
-  const jid = cleanPhone.includes('@s.whatsapp.net') ? cleanPhone : `${cleanPhone}@s.whatsapp.net`;
+  const jid = `${cleanPhone}@s.whatsapp.net`;
 
   try {
-    // Check if number is registered on WhatsApp to prevent shadowban/invalid hits
-    const [result] = await session.socket.onWhatsApp(jid);
-    if (!result || !result.exists) {
-      return { success: false, reason: 'not_registered' };
+    // Cegah shadowban / hit tidak valid: pastikan nomor terdaftar dulu.
+    const [check] = await session.socket.onWhatsApp(jid);
+
+    if (!check || !check.exists) {
+      return {
+        success: false,
+        status: 'not_registered',
+        reason: 'not_registered',
+        phone: cleanPhone,
+        detail: 'Nomor tidak terdaftar di WhatsApp.',
+      };
     }
 
     let messagePayload = { text };
-    if (options.mediaUrl) {
-      // Support media payload if provided
-      if (options.mediaType === 'image') {
-        messagePayload = { image: { url: options.mediaUrl }, caption: text };
-      } else if (options.mediaType === 'video') {
-        messagePayload = { video: { url: options.mediaUrl }, caption: text };
-      }
+
+    if (options.mediaUrl && options.mediaType === 'image') {
+      messagePayload = { image: { url: options.mediaUrl }, caption: text };
+    } else if (options.mediaUrl && options.mediaType === 'video') {
+      messagePayload = { video: { url: options.mediaUrl }, caption: text };
     }
 
-    await session.socket.sendMessage(result.jid, messagePayload);
-    return { success: true, jid: result.jid };
+    const sent = await session.socket.sendMessage(check.jid || jid, messagePayload);
+
+    return {
+      success: true,
+      status: 'sent',
+      reason: 'sent',
+      phone: cleanPhone,
+      jid: check.jid || jid,
+      messageId: sent?.key?.id || null,
+      detail: 'Pesan terkirim.',
+    };
   } catch (error) {
-    console.error(`[BEATLES-WS] Gagal kirim pesan ke ${recipient}:`, error.message);
-    return { success: false, reason: 'send_failed', error: error.message };
+    const classified = classifySendError(error);
+
+    console.error(
+      `[BEATLES-WS] Gagal kirim pesan ke ${recipient}:`,
+      error.message
+    );
+
+    return {
+      success: false,
+      phone: cleanPhone,
+      error: error.message,
+      ...classified,
+    };
   }
 }
 
@@ -488,6 +727,10 @@ function listWhatsAppSessions() {
   return Array.from(sessions.keys()).map((id) => getStatus(id));
 }
 
+/**
+ * Memutus socket sebuah session TANPA menghapus kredensial,
+ * sehingga bisa disambungkan kembali nanti tanpa scan ulang.
+ */
 async function disconnectWhatsApp(sessionId = 'device-01') {
   validateSessionId(sessionId);
 
@@ -504,10 +747,48 @@ async function disconnectWhatsApp(sessionId = 'device-01') {
   session.qr = null;
   session.pairingCode = null;
   session.error = null;
+  session.me = null;
 
   sessions.delete(sessionId);
 
   return getStatus(sessionId);
+}
+
+/**
+ * Logout penuh: memutus socket, menghapus kredensial di disk, dan
+ * menghapus session dari memori. Digunakan saat pengguna ingin menautkan
+ * nomor yang benar-benar baru.
+ */
+async function logoutWhatsApp(sessionId = 'device-01') {
+  validateSessionId(sessionId);
+
+  const session = sessions.get(sessionId);
+
+  if (session) {
+    session.stopped = true;
+    stopSocket(session, { logout: true });
+    sessions.delete(sessionId);
+  }
+
+  try {
+    fs.rmSync(getSessionDir(sessionId), { recursive: true, force: true });
+  } catch {
+    // Folder mungkin sudah tidak ada.
+  }
+
+  return getStatus(sessionId);
+}
+
+/**
+ * Mematikan seluruh socket dengan rapi (dipakai saat server shutdown).
+ */
+function shutdownAllSessions() {
+  for (const session of sessions.values()) {
+    session.stopped = true;
+    stopSocket(session);
+  }
+
+  sessions.clear();
 }
 
 module.exports = {
@@ -516,7 +797,10 @@ module.exports = {
   startSession,
   requestPairingCode,
   sendMessage,
+  checkNumber,
   getWhatsAppStatus,
   listWhatsAppSessions,
   disconnectWhatsApp,
+  logoutWhatsApp,
+  shutdownAllSessions,
 };

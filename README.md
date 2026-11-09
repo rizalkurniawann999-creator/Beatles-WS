@@ -2,10 +2,14 @@
 Professional full-stack WhatsApp automation and management web platform built with Node.js, Express, Baileys WebSocket, and Tailwind CSS.
 
 ## 🌟 Features
-- **Secure Authentication & Role-Based Access** (User, Admin, Bos)
-- **WhatsApp Device Linking & QR Scan Integration**
-- **Mass Broadcast Control with Anti-Ban Speed Settings**
-- **Corporate UI Design with Glassmorphism & Video Backgrounds**
+- **Secure Authentication & Role-Based Access** (User, Admin, Bos) dengan JWT.
+- **WhatsApp Device Linking** lewat QR Scan maupun Pairing Code.
+- **Database Nomor Tujuan**: tambah/edit/hapus, impor massal, pencarian, dan pemeriksaan status nomor.
+- **Template Pesan** yang bisa dipakai ulang untuk kirim tunggal maupun broadcast.
+- **Kirim Pesan Tunggal** dengan pelaporan status (terkirim, tidak terdaftar, terindikasi blokir, rate limit).
+- **Kendali Massal (Broadcast)** dengan preset jeda anti-ban, progres real-time, dan tombol batalkan.
+- **Deteksi anti-shadowban**: nomor yang tidak valid atau berpotensi diblokir disaring sebelum dikirim.
+- **UI korporat dark glassmorphism** dengan video latar dan notifikasi toast.
 
 ## ⚙️ Installation & Setup
 1. Clone repository ini:
@@ -56,6 +60,7 @@ src/
       client.js             # Integrasi Baileys (QR, pairing code, kirim pesan)
 public/
   index.html                # Frontend SPA (Tailwind CDN)
+  app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
   assets/                   # Logo & video latar
 data/                       # Penyimpanan runtime (store.json, upload, sesi WA)
 ```
@@ -75,6 +80,17 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | POST   | `/api/auth/register`          | Publik     |
 | GET    | `/api/auth/me`                | Login      |
 | GET    | `/api/dashboard`              | Login      |
+| GET    | `/api/contacts`               | Login      |
+| POST   | `/api/contacts`               | Login      |
+| PATCH  | `/api/contacts/:id`           | Login      |
+| DELETE | `/api/contacts/:id`           | Login      |
+| POST   | `/api/contacts/import`        | Login      |
+| POST   | `/api/contacts/check`         | Login      |
+| POST   | `/api/send-message`           | Login      |
+| GET    | `/api/messages`               | Login      |
+| POST   | `/api/broadcast`              | Login      |
+| GET    | `/api/broadcast/:id`          | Login      |
+| POST   | `/api/broadcast/:id/cancel`   | Login      |
 | GET    | `/api/admin/databases`        | ADMIN, BOS |
 | POST   | `/api/admin/databases`        | ADMIN      |
 | DELETE | `/api/admin/databases/:id`    | ADMIN      |
@@ -82,6 +98,8 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | PUT    | `/api/settings/tariff`        | ADMIN, BOS |
 | GET    | `/api/templates`              | Login      |
 | POST   | `/api/templates`              | ADMIN, BOS |
+| PATCH  | `/api/templates/:id`          | ADMIN, BOS |
+| DELETE | `/api/templates/:id`          | ADMIN, BOS |
 | GET    | `/api/withdrawals`            | Login      |
 | POST   | `/api/withdrawals`            | USER       |
 | PATCH  | `/api/withdrawals/:id/status` | ADMIN      |
@@ -91,4 +109,5 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | GET    | `/api/whatsapp/status`        | ADMIN, BOS |
 | GET    | `/api/whatsapp/sessions`      | ADMIN, BOS |
 | POST   | `/api/whatsapp/disconnect`    | ADMIN, BOS |
+| POST   | `/api/whatsapp/logout`        | ADMIN, BOS |
 
