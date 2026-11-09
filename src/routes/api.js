@@ -27,6 +27,7 @@ const {
   checkNumber,
   getWhatsAppStatus,
   listWhatsAppSessions,
+  findReusableCodeSession,
   disconnectWhatsApp,
   logoutWhatsApp,
 } = require('./whatsapp/client');
@@ -976,7 +977,17 @@ router.get('/broadcast/:id', auth, (req, res) => {
       return res.status(404).json({ ok: false, error: 'Broadcast tidak ditemukan.' });
     }
 
+    // USER hanya boleh melihat broadcast miliknya sendiri.
+    if (req.user.role === 'USER' && stored.username !== req.user.username) {
+      return res.status(403).json({ ok: false, error: 'Akses ditolak untuk broadcast ini.' });
+    }
+
     return res.json({ ok: true, broadcast: stored });
+  }
+
+  // USER hanya boleh memantau broadcast miliknya sendiri.
+  if (req.user.role === 'USER' && job.username !== req.user.username) {
+    return res.status(403).json({ ok: false, error: 'Akses ditolak untuk broadcast ini.' });
   }
 
   return res.json({
@@ -1001,6 +1012,11 @@ router.post('/broadcast/:id/cancel', auth, allow('ADMIN', 'BOS', 'USER'), (req, 
 
   if (!job) {
     return res.status(404).json({ ok: false, error: 'Broadcast tidak aktif.' });
+  }
+
+  // USER hanya boleh membatalkan broadcast miliknya sendiri.
+  if (req.user.role === 'USER' && job.username !== req.user.username) {
+    return res.status(403).json({ ok: false, error: 'Akses ditolak untuk broadcast ini.' });
   }
 
   job.cancelled = true;
@@ -1247,11 +1263,28 @@ router.post('/whatsapp/pairing-code', auth, allow('ADMIN', 'BOS'), async (req, r
       return res.status(400).json({ ok: false, error: 'Nomor telepon wajib diisi.' });
     }
 
+    // Validasi format lebih awal supaya nomor tidak valid tidak memicu
+    // pembuatan socket Baileys yang sia-sia.
+    const digits = phoneNumber.replace(/\D/g, '');
+
+    if (digits.length < 8 || digits.length > 15) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Nomor telepon tidak valid. Gunakan kode negara tanpa tanda +.',
+      });
+    }
+
     let sessionId = requestedSessionId;
 
     if (!sessionId) {
-      const created = await createNewWhatsAppSession('code');
-      sessionId = created.sessionId;
+      // Pakai ulang sesi 'code' yang belum terdaftar bila ada, supaya pairing
+      // berulang tidak menumpuk sesi baru dan menghabiskan kuota sesi aktif.
+      sessionId = findReusableCodeSession();
+
+      if (!sessionId) {
+        const created = await createNewWhatsAppSession('code');
+        sessionId = created.sessionId;
+      }
     } else {
       const current = getWhatsAppStatus(sessionId);
 
@@ -1273,6 +1306,18 @@ router.post('/whatsapp/pairing-code', auth, allow('ADMIN', 'BOS'), async (req, r
         'Pairing code diminta. Masukkan kode di WhatsApp pada ponsel yang ingin ditautkan.',
     });
   } catch (error) {
+    // Nomor yang sudah 4 kali gagal pairing berturut-turut dikunci sementara.
+    if (error.code === 'PAIRING_COOLDOWN') {
+      const retryAfterSec = Math.max(Math.ceil((error.retryAfterMs || 0) / 1000), 1);
+      res.set('Retry-After', String(retryAfterSec));
+      return res.status(429).json({
+        ok: false,
+        error: error.message,
+        code: 'PAIRING_COOLDOWN',
+        retryAfterMs: error.retryAfterMs || null,
+      });
+    }
+
     return handleError(res, error, 'Gagal meminta pairing code.', 400);
   }
 });

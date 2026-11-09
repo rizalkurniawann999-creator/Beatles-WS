@@ -738,12 +738,15 @@ async function refreshWaPanel(sessionId) {
         }
 
         if (data.status === 'pairing_code' && data.pairingCode) {
+            const attempt = Number(data.pairingAttempt) || 0;
+            const maxAttempts = Number(data.pairingMaxAttempts) || 4;
             panel.innerHTML = `
                 <div class="flex flex-col items-center">
                     <i class="fas fa-hashtag text-3xl text-beatles-cyan mb-3"></i>
                     <p class="text-sm text-slate-300 mb-2">Masukkan kode ini di WhatsApp &rarr; Perangkat Tertaut &rarr; Tautkan dengan nomor telepon.</p>
                     <div class="text-4xl md:text-5xl font-black tracking-[0.3em] text-beatles-cyan neon-text py-4 px-6 bg-slate-900 rounded-2xl border border-beatles-cyan/40">${escapeHtml(data.pairingCode)}</div>
                     <p class="text-xs text-slate-500 mt-3">Sesi: <span class="font-mono">${escapeHtml(sessionId)}</span></p>
+                    ${attempt ? `<p class="text-xs ${attempt >= maxAttempts ? 'text-yellow-300' : 'text-slate-500'} mt-2"><i class="fas fa-shield-halved mr-1"></i> Percobaan pairing ${attempt}/${maxAttempts}${attempt >= maxAttempts ? ' — batas tercapai, tunggu beberapa menit sebelum mencoba lagi.' : ''}</p>` : ''}
                 </div>`;
             return;
         }
@@ -787,10 +790,12 @@ async function requestPairing(button) {
     try {
         const data = await api('/whatsapp/pairing-code', { method: 'POST', body: JSON.stringify({ phoneNumber: phone.trim() }) });
         activeWaSessionId = data.sessionId;
-        toast('Pairing code dibuat. Masukkan di WhatsApp Anda.', 'success');
+        const attempt = Number(data.attempt) || 0;
+        const maxAttempts = Number(data.maxAttempts) || 4;
+        toast(attempt ? `Pairing code dibuat (percobaan ${attempt}/${maxAttempts}). Masukkan di WhatsApp Anda.` : 'Pairing code dibuat. Masukkan di WhatsApp Anda.', 'success');
         await renderWaConnect(document.getElementById('dashboard-content'));
     } catch (error) {
-        toast(error.message, 'error');
+        toast(error.message, error.message.toLowerCase().includes('pairing') ? 'warn' : 'error');
     } finally {
         setBusy(button, false);
     }

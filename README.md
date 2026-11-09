@@ -79,6 +79,14 @@ Catatan penting:
   template" mengarahkan ke halaman Kendali Massal dan mengisi isi pesan.
 - **Berkas unggahan** disimpan di `uploads/` — direktori yang sama yang
   disajikan server pada rute `/uploads`.
+- **Batas pairing WhatsApp.** Satu nomor hanya boleh meminta pairing code
+  maksimal 4 kali berturut-turut. Bila keempatnya gagal tanpa sempat
+  terhubung, nomor dikunci sementara selama 10 menit (respons HTTP 429 dengan
+  header `Retry-After`). Penghitung di-reset begitu pairing berhasil. Permintaan
+  pairing berulang memakai ulang sesi `code` yang sama agar tidak menumpuk sesi.
+- **Kepemilikan broadcast.** USER hanya bisa melihat status dan membatalkan
+  broadcast miliknya sendiri; mencoba mengakses broadcast USER lain
+  menghasilkan 403. ADMIN/BOS dapat melihat semua broadcast.
 
 ## 🧩 Struktur Proyek
 ```
@@ -88,6 +96,7 @@ src/
     api.js                  # REST API (auth, dashboard, admin, whatsapp, dll)
     whatsapp/
       client.js             # Integrasi Baileys (QR, pairing code, kirim pesan)
+      pairing-limit.js      # Pembatas 4x pairing berturut-turut + cooldown
 public/
   index.html                # Frontend SPA (Tailwind CDN)
   app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
@@ -100,6 +109,8 @@ uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 - `npm start` — menjalankan server produksi.
 - `npm run dev` — menjalankan server dengan `--watch`.
 - `npm run check` — validasi sintaks semua berkas sumber.
+- `npm test` — uji unit pembatas pairing.
+- `npm run test:e2e` — uji API end-to-end (RBAC + kepemilikan broadcast). Server harus sudah jalan.
 
 ## 📡 Ringkasan API
 Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Authorization: Bearer <token>`.

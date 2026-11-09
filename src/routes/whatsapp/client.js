@@ -12,6 +12,13 @@
 const fs = require('fs');
 const path = require('path');
 
+const {
+  MAX_PAIRING_ATTEMPTS,
+  assertPairingAllowed,
+  registerPairingAttempt,
+  resetPairingAttempts,
+} = require('./pairing-limit');
+
 const authRoot = path.join(process.cwd(), 'data', 'whatsapp-auth');
 const sessions = new Map();
 
@@ -82,6 +89,12 @@ function getStatus(sessionId) {
     connected: session.status === 'connected',
     qr: session.qr || null,
     pairingCode: session.pairingCode || null,
+    pairingAttempt: session.pairingAttempt || 0,
+    pairingMaxAttempts: MAX_PAIRING_ATTEMPTS,
+    pairingRemaining: Math.max(
+      MAX_PAIRING_ATTEMPTS - (session.pairingAttempt || 0),
+      0
+    ),
     error: session.error || null,
     mode: session.mode || null,
     me: session.me || null,
@@ -254,6 +267,14 @@ async function createSocket(session) {
         session.pairingCode = null;
         session.error = null;
         session.reconnectAttempts = 0;
+
+        // Pairing sukses: bersihkan riwayat percobaan untuk nomor ini.
+        if (session.pendingPairingNumber) {
+          resetPairingAttempts(session.pendingPairingNumber);
+          session.pendingPairingNumber = null;
+        }
+        session.pairingAttempt = 0;
+
         session.me = socket.user
           ? {
               id: socket.user.id || null,
@@ -405,6 +426,8 @@ async function startSession(sessionId, mode = 'qr') {
     generation: 0,
     reconnectTimer: null,
     reconnectAttempts: 0,
+    pendingPairingNumber: null,
+    pairingAttempt: 0,
   };
 
   sessions.set(sessionId, session);
@@ -477,6 +500,10 @@ async function requestPairingCode(sessionId, phoneNumber) {
     );
   }
 
+  // Cek kuota sebelum menyentuh socket: bila nomor sedang dikunci, tolak lebih
+  // awal agar tidak memboroskan percobaan WhatsApp.
+  assertPairingAllowed(number);
+
   let session = sessions.get(sessionId);
 
   if (!session || session.mode !== 'code') {
@@ -510,6 +537,12 @@ async function requestPairingCode(sessionId, phoneNumber) {
 
   const code = await session.socket.requestPairingCode(number);
 
+  // Pairing code berhasil diminta: catat percobaan. Nomor dikunci sementara
+  // setelah 4 percobaan berturut-turut (pengecekan dilakukan di awal).
+  session.pendingPairingNumber = number;
+  const quota = registerPairingAttempt(number);
+  session.pairingAttempt = quota.count;
+
   session.pairingCode = code;
   session.qr = null;
   session.status = 'pairing_code';
@@ -518,6 +551,9 @@ async function requestPairingCode(sessionId, phoneNumber) {
     sessionId,
     status: session.status,
     pairingCode: code,
+    attempt: quota.count,
+    maxAttempts: MAX_PAIRING_ATTEMPTS,
+    remaining: Math.max(MAX_PAIRING_ATTEMPTS - quota.count, 0),
   };
 }
 
@@ -728,6 +764,26 @@ function listWhatsAppSessions() {
 }
 
 /**
+ * Mencari sesi mode 'code' yang belum terdaftar dan masih hidup. Dipakai agar
+ * permintaan pairing berulang memakai sesi yang sama, bukan menumpuk sesi baru
+ * yang akhirnya menghabiskan kuota MAX_ACTIVE_SESSIONS.
+ */
+function findReusableCodeSession() {
+  for (const session of sessions.values()) {
+    if (
+      session.mode === 'code' &&
+      !session.stopped &&
+      !session.authState.creds.registered &&
+      session.status !== 'connected'
+    ) {
+      return session.id;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Memutus socket sebuah session TANPA menghapus kredensial,
  * sehingga bisa disambungkan kembali nanti tanpa scan ulang.
  */
@@ -800,6 +856,7 @@ module.exports = {
   checkNumber,
   getWhatsAppStatus,
   listWhatsAppSessions,
+  findReusableCodeSession,
   disconnectWhatsApp,
   logoutWhatsApp,
   shutdownAllSessions,
