@@ -149,15 +149,43 @@ npm ci
 npm start        # default http://localhost:3000
 ```
 
-Set `CORS_ORIGIN` di `.env` ke domain Netlify Anda agar API hanya menerima
-permintaan dari frontend resmi, contoh:
+Set `CORS_ORIGIN` di `.env` ke domain Netlify agar API hanya menerima
+permintaan dari frontend resmi:
 
 ```
-CORS_ORIGIN=https://nama-situs.netlify.app
+CORS_ORIGIN=https://beatles-ws.netlify.app
 ```
 
-Bila ingin frontend dan API tampak satu origin (menghindari CORS), aktifkan
-contoh proxy `/api/*` di `netlify.toml` dan arahkan ke domain backend Anda.
+### Menghubungkan Netlify ke backend lokal
+
+Frontend yang di-deploy di Netlify perlu "melihat" backend yang jalan di lokal.
+Dua opsi:
+
+**Opsi A — URL tunnel publik (non-Cloudflare).** Ekspos `localhost:3000` lewat
+tunnel SSH, lalu pakai URL `https://...` yang diberikan:
+
+```bash
+npm start                                   # terminal 1 (backend)
+ssh -R 80:localhost:3000 serveo.net         # terminal 2 (tunnel publik)
+# → Forwarding HTTP traffic from https://<acak>.serveousercontent.com
+```
+
+Alternatif tanpa akun: `ssh -R 80:localhost:3000 nokey@localhost.run` atau
+`npx localtunnel --port 3000`. URL tunnel ini **berubah setiap restart**; untuk
+produksi pakai domain tetap (VPS + reverse proxy, Render, Railway, Fly).
+
+Dengan `CORS_ORIGIN=https://beatles-ws.netlify.app`, browser mengizinkan
+`https://beatles-ws.netlify.app` memanggil API di URL tunnel tersebut
+(origin lain ditolak).
+
+**Opsi B — proxy same-origin (tanpa CORS).** Aktifkan blok `/api/*` di
+`netlify.toml` dan arahkan ke URL backend. Frontend dan API lalu tampak satu
+origin (`https://beatles-ws.netlify.app/api/...`).
+
+> Catatan: `public/index.html` + `public/app.js` saat ini berjalan mandiri di
+> browser (tanpa panggilan `/api/*`), jadi keduanya tetap tampil walau backend
+> mati. Konfigurasi di atas menyiapkan jalur koneksi ketika integrasi API
+> diaktifkan.
 
 ## 📡 Ringkasan API
 Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Authorization: Bearer <token>`.
