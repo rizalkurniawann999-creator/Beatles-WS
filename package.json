@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "check": "node --check src/server.js && node --check src/whatsapp/client.js"
+    "check": "node --check src/server.js && node --check src/routes/api.js && node --check src/routes/whatsapp/client.js"
   },
   "engines": {
     "node": ">=20"

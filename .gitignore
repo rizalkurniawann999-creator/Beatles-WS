@@ -3,4 +3,7 @@ node_modules/
 uploads/*
 !uploads/.gitkeep
 auth_info_baileys/
+data/store.json
+data/uploads/
+data/whatsapp-auth/
 .DS_Store
