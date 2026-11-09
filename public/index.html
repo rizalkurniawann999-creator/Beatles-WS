@@ -1,14 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beatles-WS | Professional WhatsApp Management</title>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -25,14 +22,8 @@
                         }
                     },
                     keyframes: {
-                        floaty: {
-                            '0%,100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-6px)' }
-                        },
-                        pulseGlow: {
-                            '0%,100%': { opacity: '0.6' },
-                            '50%': { opacity: '1' }
-                        }
+                        floaty: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+                        pulseGlow: { '0%,100%': { opacity: '0.6' }, '50%': { opacity: '1' } }
                     },
                     animation: {
                         floaty: 'floaty 6s ease-in-out infinite',
@@ -42,505 +33,182 @@
             }
         }
     </script>
-
     <style>
         :root { color-scheme: dark; }
-
         body { background: #0b1120; }
-
-        .video-bg {
-            position: fixed;
-            right: 0;
-            bottom: 0;
-            min-width: 100%;
-            min-height: 100%;
-            z-index: -1;
-            object-fit: cover;
-            opacity: 0.22;
-        }
-
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.72);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(34, 211, 238, 0.18);
-        }
-
-        .glow-focus:focus {
-            box-shadow: 0 0 0 1px rgba(34,211,238,0.6),
-                        0 0 18px rgba(34,211,238,0.28);
-        }
-
-        .glow-ring {
-            box-shadow: 0 0 22px rgba(34,211,238,0.28);
-        }
-
-        .neon-text {
-            text-shadow: 0 0 12px rgba(34,211,238,0.55);
-        }
-
-        .scrollbar-thin::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-            background: rgba(34,211,238,0.25);
-            border-radius: 999px;
-        }
-
-        .scrollbar-thin::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .gradient-border {
-            position: relative;
-        }
-
-        .gradient-border::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            padding: 1px;
-            background: linear-gradient(
-                135deg,
-                rgba(34,211,238,0.6),
-                rgba(16,185,129,0.35),
-                rgba(194,155,97,0.5)
-            );
-            -webkit-mask: linear-gradient(#000 0 0) content-box,
-                          linear-gradient(#000 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            pointer-events: none;
-        }
-
-        #toast-stack {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 60;
-            display: flex;
-            flex-direction: column;
-            gap: .6rem;
-            max-width: min(92vw, 380px);
-        }
-
-        .toast {
-            animation: toastIn .28s ease-out;
-        }
-
-        @keyframes toastIn {
-            from {
-                opacity: 0;
-                transform: translateX(24px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .nav-active {
-            background: rgba(34,211,238,0.12);
-            color: #22d3ee;
-            box-shadow: inset 4px 0 0 rgba(34,211,238,1);
-        }
-
-        .status-dot {
-            width: .55rem;
-            height: .55rem;
-            border-radius: 999px;
-            display: inline-block;
-        }
-
-        .modal-backdrop {
-            background: rgba(2,6,23,0.7);
-            backdrop-filter: blur(4px);
-        }
-
-        .spinner {
-            width: 1rem;
-            height: 1rem;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
-            border-radius: 999px;
-            animation: spin .7s linear infinite;
-            display: inline-block;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Tambahan tampilan fitur profil dan dashboard */
-
-        .profile-avatar {
-            width: 96px;
-            height: 96px;
-            object-fit: cover;
-            border-radius: 999px;
-            border: 2px solid #22d3ee;
-            background: #1e293b;
-        }
-
-        .feature-input {
-            width: 100%;
-            background: rgba(30,41,59,.9);
-            border: 1px solid #334155;
-            border-radius: 9px;
-            padding: 12px;
-            color: white;
-            outline: none;
-        }
-
-        .feature-input:focus {
-            border-color: #22d3ee;
-            box-shadow: 0 0 0 1px rgba(34,211,238,.3);
-        }
-
-        .feature-button {
-            background: #22d3ee;
-            color: #0b1120;
-            font-weight: 700;
-            padding: 11px 18px;
-            border-radius: 9px;
-            transition: .2s;
-        }
-
-        .feature-button:hover {
-            background: #67e8f9;
-        }
-
-        .feature-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .feature-table th,
-        .feature-table td {
-            padding: 12px;
-            border-bottom: 1px solid rgba(51,65,85,.6);
-            text-align: left;
-        }
-
-        .feature-table th {
-            color: #22d3ee;
-            font-size: 12px;
-        }
-
-        input[type="file"] {
-            max-width: 100%;
-        }
-
-        @media (max-width: 640px) {
-            .mobile-table {
-                overflow-x: auto;
-            }
-        }
+        .video-bg { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; opacity: 0.22; }
+        .glass-panel { background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(34, 211, 238, 0.18); }
+        .glow-focus:focus { box-shadow: 0 0 0 1px rgba(34,211,238,0.6), 0 0 18px rgba(34,211,238,0.28); }
+        .glow-ring { box-shadow: 0 0 22px rgba(34,211,238,0.28); }
+        .neon-text { text-shadow: 0 0 12px rgba(34,211,238,0.55); }
+        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(34,211,238,0.25); border-radius: 999px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .gradient-border { position: relative; }
+        .gradient-border::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(34,211,238,0.6), rgba(16,185,129,0.35), rgba(194,155,97,0.5)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        #toast-stack { position: fixed; top: 1rem; right: 1rem; z-index: 60; display: flex; flex-direction: column; gap: .6rem; max-width: min(92vw, 380px); }
+        .toast { animation: toastIn .28s ease-out; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+        .nav-active { background: rgba(34,211,238,0.12); color: #22d3ee; box-shadow: inset 4px 0 0 rgba(34,211,238,1); }
+        .status-dot { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; }
+        .modal-backdrop { background: rgba(2,6,23,0.7); backdrop-filter: blur(4px); }
+        .spinner { width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 999px; animation: spin .7s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-
 <body class="bg-beatles-900 text-slate-300 font-sans antialiased overflow-x-hidden">
 
     <div id="toast-stack"></div>
 
+    <!-- LANGUAGE SELECTOR FLOATING -->
+    <div class="fixed top-4 right-4 z-50">
+        <select id="lang-selector" onchange="changeLanguage(this.value)" class="bg-slate-800/90 border border-beatles-cyan/30 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-beatles-cyan shadow-lg">
+            <option value="id">🇮🇩 Indonesia</option>
+            <option value="en">🇬🇧 English</option>
+        </select>
+    </div>
+
     <!-- CONSOLE / LANDING PAGE -->
     <div id="view-console" class="relative min-h-screen flex flex-col items-center justify-center p-4">
-
         <video autoplay loop muted playsinline class="video-bg">
             <source src="assets/video_2.mp4" type="video/mp4">
         </video>
-
         <div class="z-10 text-center glass-panel gradient-border p-10 md:p-14 rounded-3xl shadow-2xl transform transition duration-500 hover:scale-105 max-w-lg w-full animate-floaty">
-
             <div class="flex justify-center mb-6">
-                <img src="assets/logo.png" alt="Beatles-WS Logo"
-                    class="w-32 h-32 md:w-36 md:h-36 object-cover rounded-2xl glow-ring border-2 border-beatles-cyan/50">
+                <img src="assets/logo.png" alt="Beatles-WS Logo" class="w-32 h-32 md:w-36 md:h-36 object-cover rounded-2xl glow-ring border-2 border-beatles-cyan/50">
             </div>
-
-            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-widest neon-text">
-                BEATLES-<span class="text-beatles-cyan">WS</span>
-            </h1>
-
-            <p class="text-xs md:text-sm text-beatles-bronze uppercase tracking-widest font-semibold mb-4">
-                Global Platform Solutions
-            </p>
-
-            <p class="text-sm md:text-base text-slate-300 mb-8 font-light tracking-wide leading-relaxed">
-                Kelola automasi dan pesan WhatsApp Anda dengan mudah, aman, dan profesional.
-            </p>
-
-            <button onclick="showAuth()"
-                class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3.5 px-8 rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)] hover:shadow-[0_0_32px_rgba(34,211,238,0.9)] tracking-wide">
-                Masuk ke Dashboard <i class="fas fa-arrow-right ml-2"></i>
+            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-widest neon-text">BEATLES-<span class="text-beatles-cyan">WS</span></h1>
+            <p id="t-subtitle" class="text-xs md:text-sm text-beatles-bronze uppercase tracking-widest font-semibold mb-4">Global Platform Solutions</p>
+            <p id="t-desc" class="text-sm md:text-base text-slate-300 mb-8 font-light tracking-wide leading-relaxed">Kelola automasi dan pesan WhatsApp Anda dengan mudah, aman, dan profesional.</p>
+            <button onclick="showAuth()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3.5 px-8 rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)] hover:shadow-[0_0_32px_rgba(34,211,238,0.9)] tracking-wide">
+                <span id="t-enter-btn">Masuk ke Dashboard</span> <i class="fas fa-arrow-right ml-2"></i>
             </button>
-
         </div>
     </div>
 
-    <!-- AUTHENTICATION PAGE -->
+    <!-- AUTHENTICATION PAGE (LOGIN & REGISTER) -->
     <div id="view-auth" class="hidden relative min-h-screen flex items-center justify-center p-4">
-
         <video autoplay loop muted playsinline class="video-bg opacity-30">
             <source src="assets/video_1.mp4" type="video/mp4">
         </video>
 
         <div class="z-10 w-full max-w-md glass-panel gradient-border p-8 rounded-2xl shadow-2xl">
-
             <div class="flex justify-center mb-4">
-                <img src="assets/logo.png" alt="Logo"
-                    class="w-16 h-16 object-cover rounded-xl border border-beatles-cyan/40 shadow-md">
+                <img src="assets/logo.png" alt="Logo" class="w-16 h-16 object-cover rounded-xl border border-beatles-cyan/40 shadow-md">
             </div>
 
             <!-- Login Form -->
             <div id="form-login">
-
-                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">
-                    Selamat Datang!
-                </h2>
-
-                <p class="text-center text-xs text-slate-400 mb-6">
-                    Sistem Terenkripsi &amp; Aman
-                </p>
-
+                <h2 id="t-login-title" class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Selamat Datang!</h2>
+                <p id="t-login-sub" class="text-center text-xs text-slate-400 mb-6">Sistem Terenkripsi &amp; Aman</p>
                 <div class="space-y-5">
-
                     <div>
-                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">
-                            Username
-                        </label>
-
+                        <label id="t-lbl-user" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
                         <div class="relative">
                             <i class="fas fa-user absolute left-3 top-3.5 text-slate-500"></i>
-
-                            <input type="text" id="login-username" autocomplete="username"
-                                class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all"
-                                placeholder="Masukkan username">
+                            <input type="text" id="login-username" autocomplete="username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan username">
                         </div>
                     </div>
-
                     <div>
-                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">
-                            Kata Sandi
-                        </label>
-
+                        <label id="t-lbl-pass" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
                         <div class="relative">
                             <i class="fas fa-lock absolute left-3 top-3.5 text-slate-500"></i>
-
-                            <input type="password" id="login-password" autocomplete="current-password"
-                                class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all"
-                                placeholder="Masukkan kata sandi">
+                            <input type="password" id="login-password" autocomplete="current-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan kata sandi">
                         </div>
                     </div>
-
-                    <div id="auth-error"
-                        class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-                    </div>
-
-                    <button id="login-btn" onclick="submitLogin()"
-                        class="w-full bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
-                        Masuk Sekarang
+                    <div id="auth-error" class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
+                    <button id="login-btn" onclick="submitLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
+                        <span id="t-login-action">Masuk Sekarang</span>
                     </button>
-
-                    <p class="text-center text-sm text-slate-400 mt-4">
-                        Belum punya akun?
-                        <a href="#" onclick="toggleAuth('register')"
-                            class="text-beatles-cyan font-semibold hover:underline">
-                            Daftar di sini
-                        </a>
-                    </p>
-
+                    <p class="text-center text-sm text-slate-400 mt-4"><span id="t-no-acc">Belum punya akun?</span> <a href="#" onclick="toggleAuth('register')" class="text-beatles-cyan font-semibold hover:underline"><span id="t-reg-link">Daftar di sini</span></a></p>
                 </div>
             </div>
 
             <!-- Register Form -->
             <div id="form-register" class="hidden">
-
-                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">
-                    Buat Akun Baru
-                </h2>
-
-                <p class="text-center text-xs text-slate-400 mb-6">
-                    Bergabung dengan ekosistem Beatles-WS
-                </p>
-
+                <h2 id="t-reg-title" class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Buat Akun Baru</h2>
+                <p id="t-reg-sub" class="text-center text-xs text-slate-400 mb-6">Bergabung dengan ekosistem Beatles-WS</p>
                 <div class="space-y-4">
-
                     <div>
-                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">
-                            Nama Lengkap
-                        </label>
-
-                        <input type="text" id="register-name"
-                            class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label id="t-lbl-name" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Lengkap</label>
+                        <input type="text" id="register-name" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
-
                     <div>
-                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">
-                            Username
-                        </label>
-
-                        <input type="text" id="register-username"
-                            class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label id="t-lbl-reg-user" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
+                        <input type="text" id="register-username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
-
                     <div>
-                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">
-                            Kata Sandi
-                        </label>
-
-                        <input type="password" id="register-password"
-                            class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label id="t-lbl-reg-pass" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
+                        <input type="password" id="register-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
                     </div>
-
-                    <div id="register-error"
-                        class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
-                    </div>
-
-                    <button id="register-btn" onclick="submitRegister()"
-                        class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)] mt-4">
-                        Daftar &amp; Lanjut Login
+                    <div id="register-error" class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
+                    <button id="register-btn" onclick="submitRegister()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)] mt-4">
+                        <span id="t-reg-action">Daftar &amp; Lanjut Login</span>
                     </button>
-
-                    <p class="text-center text-sm text-slate-400 mt-4">
-                        Sudah punya akun?
-                        <a href="#" onclick="toggleAuth('login')"
-                            class="text-beatles-emerald font-semibold hover:underline">
-                            Masuk
-                        </a>
-                    </p>
-
+                    <p class="text-center text-sm text-slate-400 mt-4"><span id="t-has-acc">Sudah punya akun?</span> <a href="#" onclick="toggleAuth('login')" class="text-beatles-emerald font-semibold hover:underline"><span id="t-login-link">Masuk</span></a></p>
                 </div>
             </div>
-
         </div>
     </div>
 
     <!-- DASHBOARD WRAPPER -->
     <div id="view-dashboard" class="hidden min-h-screen bg-beatles-900 flex">
-
         <!-- MOBILE SIDEBAR BACKDROP -->
-        <div id="sidebar-backdrop"
-            class="hidden fixed inset-0 bg-black/60 z-30 md:hidden"
-            onclick="toggleSidebar(false)">
-        </div>
+        <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden" onclick="toggleSidebar(false)"></div>
 
         <!-- SIDEBAR -->
-        <aside id="sidebar"
-            class="w-64 glass-panel border-r border-slate-700 flex flex-col fixed md:static inset-y-0 left-0 z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
-
+        <aside id="sidebar" class="w-64 glass-panel border-r border-slate-700 flex flex-col fixed md:static inset-y-0 left-0 z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
             <div class="p-6 border-b border-slate-700 flex flex-col items-center">
-
                 <div class="flex items-center space-x-2 mb-2">
-                    <img src="assets/logo.png" alt="Logo"
-                        class="w-8 h-8 rounded-lg object-cover">
-
-                    <h2 class="text-xl font-black text-white tracking-widest">
-                        BEATLES-<span class="text-beatles-cyan">WS</span>
-                    </h2>
+                    <img src="assets/logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-cover">
+                    <h2 class="text-xl font-black text-white tracking-widest">BEATLES-<span class="text-beatles-cyan">WS</span></h2>
                 </div>
-
                 <div class="mt-2 py-1 px-3 bg-slate-800 rounded-full border border-slate-600">
-                    <p id="user-role-display"
-                        class="text-[10px] text-beatles-emerald uppercase font-bold tracking-widest">
-                    </p>
+                    <p id="user-role-display" class="text-[10px] text-beatles-emerald uppercase font-bold tracking-widest"></p>
                 </div>
-
             </div>
 
-            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto scrollbar-thin"
-                id="sidebar-nav">
-            </nav>
+            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto scrollbar-thin" id="sidebar-nav"></nav>
 
             <div class="p-4 border-t border-slate-700">
-
-                <button onclick="logout()"
-                    class="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2.5 rounded-lg transition-all font-semibold">
-
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Keluar</span>
-
+                <button onclick="logout()" class="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2.5 rounded-lg transition-all font-semibold">
+                    <i class="fas fa-sign-out-alt"></i> <span id="t-logout">Keluar</span>
                 </button>
-
             </div>
         </aside>
 
         <!-- MAIN CONTENT -->
         <main class="flex-1 flex flex-col h-screen overflow-y-auto scrollbar-thin bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-800/60 via-beatles-900 to-beatles-900">
-
             <header class="glass-panel border-b border-slate-700 p-4 flex justify-between items-center sticky top-0 z-20">
-
                 <div class="flex items-center space-x-4">
-
-                    <button onclick="toggleSidebar(true)"
-                        class="md:hidden text-slate-300 hover:text-white">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-
-                    <h3 class="text-lg md:text-xl font-bold text-white tracking-wide"
-                        id="page-title">
-                        Dashboard
-                    </h3>
-
+                    <button onclick="toggleSidebar(true)" class="md:hidden text-slate-300 hover:text-white"><i class="fas fa-bars text-xl"></i></button>
+                    <h3 class="text-lg md:text-xl font-bold text-white tracking-wide" id="page-title">Dashboard</h3>
                 </div>
-
                 <div class="flex items-center space-x-4">
-
-                    <div id="wa-status-pill"
-                        class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 rounded-full px-3 py-1.5">
-
+                    <div id="wa-status-pill" class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 rounded-full px-3 py-1.5">
                         <span id="wa-status-dot" class="status-dot bg-slate-500"></span>
-
-                        <span id="wa-status-text"
-                            class="text-xs font-semibold text-slate-300">
-                            Memeriksa...
-                        </span>
-
+                        <span id="wa-status-text" class="text-xs font-semibold text-slate-300">Memeriksa...</span>
                     </div>
-
                     <div class="text-right hidden sm:block">
-
-                        <p class="text-sm text-white font-semibold" id="top-username">
-                            User
-                        </p>
-
-                        <p class="text-xs text-beatles-cyan" id="top-role">
-                            Online
-                        </p>
-
+                        <p class="text-sm text-white font-semibold" id="top-username">User</p>
+                        <p class="text-xs text-beatles-cyan" id="top-role">Online</p>
                     </div>
-
-                    <!-- Avatar header: mendukung foto profil -->
-                    <div id="top-profile-avatar"
-                        class="w-10 h-10 rounded-full bg-slate-800 border-2 border-beatles-cyan flex items-center justify-center text-white glow-ring overflow-hidden">
-
-                        <i id="top-profile-icon" class="fas fa-user-astronaut"></i>
-
+                    <div class="w-10 h-10 rounded-full bg-slate-800 border-2 border-beatles-cyan flex items-center justify-center text-white glow-ring">
+                        <i class="fas fa-user-astronaut"></i>
                     </div>
-
                 </div>
             </header>
 
-            <!-- Dynamic page content -->
             <div class="p-4 md:p-8" id="dashboard-content"></div>
-
         </main>
     </div>
 
     <!-- MODAL -->
-    <div id="modal-root"
-        class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-
-        <div id="modal-card"
-            class="glass-panel gradient-border rounded-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto scrollbar-thin shadow-2xl">
-        </div>
-
+    <div id="modal-root" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div id="modal-card" class="glass-panel gradient-border rounded-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto scrollbar-thin shadow-2xl"></div>
     </div>
 
-    <!-- MAIN APPLICATION SCRIPT -->
     <script src="app.js"></script>
-
 </body>
-</html>
+    </html>
+    
