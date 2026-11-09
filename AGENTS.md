@@ -56,3 +56,16 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
 - `npm run tunnel:quick` (no login) or `npm run tunnel:start` (named, token).
 - Auto-deploy: `.github/workflows/deploy-cloudflare.yml` deploys `public/` to
   Pages on push to `main`, gated on the `CLOUDFLARE_API_TOKEN` secret.
+- Quick-tunnel URLs (`*.trycloudflare.com`) are **ephemeral** and return
+  Cloudflare HTTP 530 once the tunnel stops. Always fetch the current URL from
+  `.cloudflared/url.txt` (written by `serve:public`); a stale URL looks like
+  "login broken" but is just a dead tunnel.
+
+## Auth
+
+- Login/register limiter: 30 failed attempts per 15 min per IP
+  (`skipSuccessfulRequests: true`) — successful logins never consume quota, so
+  normal use cannot lock the account.
+- Frontend: a 401 only shows "sesi berakhir" when a session existed; the login
+  form is shown immediately and `restoreSession()` keeps the token on transient
+  network errors.
