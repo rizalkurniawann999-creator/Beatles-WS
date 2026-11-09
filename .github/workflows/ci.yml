@@ -1,0 +1,23 @@
+# CI: validasi sintaks + unit test backend.
+# Deploy frontend ditangani Netlify (lihat netlify.toml), bukan di sini.
+name: CI
+
+on:
+  push:
+    branches: [main, 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify (syntax + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
