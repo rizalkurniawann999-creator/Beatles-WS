@@ -33,7 +33,9 @@ const {
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, '..', '..', 'data', 'uploads');
+// File unggahan disimpan di folder yang sama dengan yang disajikan server
+// pada rute /uploads, agar berkas yang diunggah benar-benar dapat diakses.
+const uploadDir = path.join(__dirname, '..', '..', 'uploads');
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
