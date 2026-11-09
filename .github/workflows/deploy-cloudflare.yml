@@ -2,7 +2,8 @@ name: Deploy to Cloudflare
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'fix/**']
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -26,6 +27,9 @@ jobs:
   deploy-pages:
     name: Deploy frontend ke Cloudflare Pages
     needs: verify
+    # Deploy hanya dari main (atau dispatch manual). Mencegah branch fitur
+    # menimpa frontend produksi di Cloudflare Pages.
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
