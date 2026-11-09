@@ -1,10 +1,15 @@
-# Konfigurasi Cloudflare Pages (deploy frontend statis dari folder public/).
-# Dipakai oleh: npm run deploy:pages
+# Konfigurasi Cloudflare untuk Beatles-WS (frontend statis dari folder public/).
+#
+# [assets] dipakai oleh pipeline "Workers Builds" yang menjalankan
+# `wrangler deploy` (Workers static assets). Format ini juga tetap valid untuk
+# `wrangler pages deploy ./public` (lihat cloudflare/scripts/deploy-pages.sh).
 #
 # CATATAN: Beatles-WS adalah server Node.js (Express + API + WebSocket Baileys),
-# bukan situs statis murni. Pages hanya menghosting frontend. Untuk aplikasi
-# penuh, gunakan Cloudflare Tunnel (npm run tunnel:start) ke server Node.
+# bukan situs statis murni. Cloudflare hanya menghosting frontend. Untuk
+# aplikasi penuh, gunakan Cloudflare Tunnel (npm run tunnel:start).
 
 name = "beatles-ws"
 compatibility_date = "2026-11-01"
-pages_build_output_dir = "./public"
+
+[assets]
+directory = "./public"

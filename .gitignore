@@ -11,3 +11,6 @@ data/whatsapp-auth/
 # Cloudflare: kredensial lokal (jangan pernah di-commit)
 .cloudflared/
 cloudflare/*.pem
+
+# Cloudflare wrangler: cache build lokal
+.wrangler/
