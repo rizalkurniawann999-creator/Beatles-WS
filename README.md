@@ -111,6 +111,37 @@ uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 - `npm run check` — validasi sintaks semua berkas sumber.
 - `npm test` — uji unit pembatas pairing.
 - `npm run test:e2e` — uji API end-to-end (RBAC + kepemilikan broadcast). Server harus sudah jalan.
+- `npm run cf:install` — memasang cloudflared CLI (idempoten).
+- `npm run cf:status` — cek kesiapan Cloudflare (cloudflared, login, token).
+- `npm run tunnel:quick` — quick tunnel publik ke `localhost:3000` (uji cepat).
+- `npm run tunnel:start` — named tunnel via `CLOUDFLARE_TUNNEL_TOKEN`.
+- `npm run deploy:pages` — deploy folder `public/` ke Cloudflare Pages.
+
+## ☁️ Deploy & Tunnel (Cloudflare)
+
+Beatles-WS adalah server Node.js (Express + API + WebSocket Baileys), bukan
+situs statis. Metode yang disarankan: **Cloudflare Tunnel**.
+
+Panduan lengkap: [`cloudflare/README.md`](cloudflare/README.md).
+
+Langkah singkat:
+
+```bash
+# Uji cepat tanpa login (URL acak trycloudflare.com):
+npm start            # terminal 1
+npm run tunnel:quick # terminal 2
+
+# Produksi (named tunnel, butuh login):
+cloudflared tunnel login          # otorisasi akun lewat browser
+cloudflared tunnel create beatles-ws
+cloudflared tunnel route dns beatles-ws ws.contohdomain.com
+export CLOUDFLARE_TUNNEL_TOKEN="<token>"
+npm run tunnel:start
+```
+
+Auto-deploy ke Cloudflare Pages berjalan lewat GitHub Actions
+(`.github/workflows/deploy-cloudflare.yml`) saat push ke `main`. Set secret
+`CLOUDFLARE_API_TOKEN` (dan opsional `CLOUDFLARE_ACCOUNT_ID`) di repo GitHub.
 
 ## 📡 Ringkasan API
 Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Authorization: Bearer <token>`.

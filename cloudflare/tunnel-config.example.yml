@@ -1,0 +1,24 @@
+# Contoh konfigurasi named tunnel cloudflared.
+# Salin ke ~/.cloudflared/config.yml setelah membuat tunnel, lalu isi
+# tunnel UUID, credentials file, dan hostname milikmu.
+#
+#   cp cloudflare/tunnel-config.example.yml ~/.cloudflared/config.yml
+#   cloudflared tunnel run beatles-ws
+#
+# Atau cukup pakai token (tanpa file ini):
+#   CLOUDFLARE_TUNNEL_TOKEN=xxx npm run tunnel:start
+
+tunnel: beatles-ws
+credentials-file: /root/.cloudflared/<TUNNEL-UUID>.json
+
+ingress:
+  - hostname: ws.contohdomain.com
+    service: http://localhost:3000
+    originRequest:
+      # Baileys memakai WebSocket -> jangan putus koneksi panjang.
+      noTLSVerify: false
+      connectTimeout: 30s
+      # Keepalive agar WebSocket WhatsApp tidak terputus.
+      keepAliveConnections: 100
+      keepAliveTimeout: 90s
+  - service: http_status:404

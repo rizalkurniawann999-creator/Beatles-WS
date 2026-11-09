@@ -7,3 +7,7 @@ data/store.json
 data/uploads/
 data/whatsapp-auth/
 .DS_Store
+
+# Cloudflare: kredensial lokal (jangan pernah di-commit)
+.cloudflared/
+cloudflare/*.pem
