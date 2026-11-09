@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "check": "node --check src/server.js && node --check src/routes/api.js && node --check src/routes/whatsapp/client.js && node --check src/routes/whatsapp/pairing-limit.js",
-    "test": "node test/pairing-limit.test.js",
+    "test": "node test/pairing-limit.test.js && node test/server-safety.test.js",
     "test:e2e": "bash test/api.e2e.sh",
     "cf:install": "bash cloudflare/scripts/install-cloudflared.sh",
     "cf:status": "bash cloudflare/scripts/status.sh",

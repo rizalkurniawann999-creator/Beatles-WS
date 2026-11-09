@@ -125,4 +125,20 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
+// Jaring pengaman: satu error tak tertangani tidak boleh mematikan seluruh
+// server. Di Node modern, error di handler async (mis. event Baileys) adalah
+// unhandled rejection yang default-nya MEMBUNUH proses — tanpa ini, gateway
+// mati mendadak sehingga klien melihat "sesi berakhir" padahal token masih
+// sah. Kami catat lalu tetap melayani agar layanan tetap hidup.
+process.on('unhandledRejection', (reason) => {
+  console.error(
+    '[BEATLES-WS] Unhandled rejection:',
+    reason instanceof Error ? reason.message : reason
+  );
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[BEATLES-WS] Uncaught exception:', error.message);
+});
+
 module.exports = { app, server };

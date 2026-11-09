@@ -69,3 +69,15 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
 - Frontend: a 401 only shows "sesi berakhir" when a session existed; the login
   form is shown immediately and `restoreSession()` keeps the token on transient
   network errors.
+- Tokens: HS256, issuer `beatles-ws`, 8h expiry. Frontend stores them under the
+  `beatles_token` localStorage key.
+
+## Process safety
+
+- `src/server.js` installs `unhandledRejection` / `uncaughtException` handlers.
+  Node 24 kills the process on an unhandled rejection, so without them a single
+  error inside an async Baileys event handler takes the whole gateway down
+  (clients then see "sesi berakhir" even though their token is still valid).
+- Async event handlers (e.g. `connection.update` in `whatsapp/client.js`) must
+  wrap their body in try/catch as well.
+- `test/server-safety.test.js` guards this behaviour.
