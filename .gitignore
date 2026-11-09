@@ -8,9 +8,5 @@ data/uploads/
 data/whatsapp-auth/
 .DS_Store
 
-# Cloudflare: kredensial lokal (jangan pernah di-commit)
-.cloudflared/
-cloudflare/*.pem
-
-# Cloudflare wrangler: cache build lokal
-.wrangler/
+# Netlify: cache & konfigurasi lokal (jangan pernah di-commit)
+.netlify/

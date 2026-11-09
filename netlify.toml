@@ -1,0 +1,45 @@
+# Konfigurasi deploy frontend Beatles-WS ke Netlify.
+#
+# Yang di-deploy HANYA folder `public/` (index.html, app.js, assets/) — situs
+# statis tanpa langkah build. Backend Node.js (Express + REST API /api/* +
+# gateway WebSocket Baileys) TIDAK jalan di Netlify dan harus di-host terpisah
+# (VPS, Render, Railway, Fly.io, dsb). Lihat README bagian "Deploy".
+
+[build]
+  publish = "public"
+  # Tidak ada build step: frontend memakai CDN (Tailwind + Font Awesome) dan
+  # file statis apa adanya.
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Frontend memakai hash routing/SPA tanpa server: arahkan semua path tak dikenal
+# ke index.html agar tidak 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Contoh memisahkan backend: proxy /api/* ke server Node Anda sehingga frontend
+# dan API tampak satu origin (menghindari CORS). Ganti URL di bawah dengan
+# domain backend yang sebenarnya, lalu hapus komentar bila dipakai.
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://api.contohdomain.com/api/:splat"
+#   status = 200
+#   force = true
+
+# Header keamanan dasar untuk situs statis.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache lama untuk aset yang jarang berubah.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

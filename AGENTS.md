@@ -38,15 +38,18 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
   `listWhatsAppSessions`.
 - `src/routes/whatsapp/pairing-limit.js` — pure module: 4 pairing attempts per
   number, then a 10-minute cooldown (429 + Retry-After). Resets on success.
-- `public/index.html` + `public/app.js` — SPA. `ROLE_NAV` defines per-role
-  pages; `loadContent` enforces `isPageAllowed`. Pages guard admin-only calls
-  with `canManage = role === 'admin' || 'bos'`. **Do not modify without an
-  explicit request** — keep the backend aligned to this contract instead.
+- `public/index.html` + `public/app.js` — self-contained static frontend
+  (dark Tailwind via CDN, Font Awesome, no build step). State lives in the
+  browser: login/register, language switch (id/en, `translations` +
+  `changeLanguage`), WhatsApp pairing capped at 4 attempts, and the ADMIN
+  "Stok DB" page with Database/Template sub-tabs (persisted in `localStorage`).
+  It runs standalone and makes no `/api/*` calls. **Do not modify without an
+  explicit request** — the user maintains these files directly.
 
 ## Conventions & gotchas
 
-- Keep frontend/backend contract in sync: every `api('/x')` in `public/app.js`
-  must have a matching `router.*` in `src/routes/api.js`.
+- The frontend is standalone: it does not call the REST API. The Express API in
+  `src/routes/api.js` remains available for integrations and the e2e tests.
 - USER-facing data (broadcasts, messages, withdrawals, dashboard) is filtered
   by ownership; ADMIN/BOS see everything. Preserve this when adding endpoints.
 - Requests reject prototype-pollution payloads (`__proto__`/`constructor`/
@@ -64,23 +67,19 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
   `ws-boss7002043`). Do not commit `data/store.json` or WA auth dirs.
 - Validate phone numbers (8–15 digits) BEFORE creating a Baileys socket.
 
-## Cloudflare (deploy/tunnel)
+## Deploy (Netlify + backend)
 
-- `cloudflared` installed via `npm run cf:install` (Debian `.deb` from
-  GitHub releases). `npm run cf:status` reports readiness without leaking tokens.
-- The app is a **stateful Node server** (API + Baileys WebSocket), so
-  **Cloudflare Tunnel is the primary method**, not Pages/Workers. Pages only
-  hosts the static `public/` folder.
-- Scripts live in `cloudflare/scripts/`; `load-env.sh` sources `.env` without
-  overwriting existing env vars. Tokens are read only from env
-  (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_TUNNEL_TOKEN`) — never committed.
-- `npm run tunnel:quick` (no login) or `npm run tunnel:start` (named, token).
-- Auto-deploy: `.github/workflows/deploy-cloudflare.yml` deploys `public/` to
-  Pages on push to `main`, gated on the `CLOUDFLARE_API_TOKEN` secret.
-- Quick-tunnel URLs (`*.trycloudflare.com`) are **ephemeral** and return
-  Cloudflare HTTP 530 once the tunnel stops. Always fetch the current URL from
-  `.cloudflared/url.txt` (written by `serve:public`); a stale URL looks like
-  "login broken" but is just a dead tunnel.
+- Two parts, hosted separately: the **static frontend** (`public/`:
+  `index.html`, `app.js`, `assets/`) goes to **Netlify** (`netlify.toml`,
+  publish `public/`, no build step, SPA fallback, security headers); the
+  **Node.js backend** (Express + `/api/*` + Baileys WebSocket, needs disk and
+  persistent sockets) must run on a VPS/Render/Railway/Fly — **not** Netlify
+  Functions.
+- Cloudflare was removed entirely (no `wrangler.toml`, no `cloudflare/` scripts,
+  no Pages/Workers workflow). Do not re-add Cloudflare config.
+- To connect the Netlify frontend to the backend, set `CORS_ORIGIN` in `.env` to
+  the Netlify domain, or enable the commented `/api/*` proxy in `netlify.toml`
+  so both share one origin.
 
 ## Auth
 
