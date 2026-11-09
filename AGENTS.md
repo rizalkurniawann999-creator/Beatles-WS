@@ -13,24 +13,35 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
 
 - `npm start` — run server (`src/server.js`).
 - `npm run check` — syntax check all source files.
-- `npm test` — unit tests (pairing limiter).
+- `npm test` — unit tests (pairing limiter, security helpers, server safety).
 - `npm run test:e2e` — end-to-end API/RBAC tests (server must already be running).
 - Server binds port from `.env` PORT (default 3000). Health: `GET /api/health`.
 
 ## Architecture
 
-- `src/server.js` — bootstrap, static serving, error handling.
-- `src/routes/api.js` — all REST endpoints. Auth via JWT Bearer; RBAC via
-  `auth` + `allow('ADMIN'|'BOS'|'USER')` middleware. `publicUser()` shapes the
-  user object; role is uppercased in tokens.
+- `src/server.js` — bootstrap, static serving, rate limiters (login/register/
+  translate/api), centralized error handling (JSON/multer), clean shutdown.
+- `src/store.js` — read/write `data/store.json` + memoized `defaultStore()`
+  seed (avoids 2× bcrypt hash on every read). Import `readStore`/`saveStore`.
+- `src/utils/helpers.js` — `normalizePhone`, `isValidPhone`, `clampString`,
+  `isValidSessionId`, `sanitizeFilename`, `isAllowedUpload`, `hasUnsafeKeys`
+  (prototype-pollution guard), `asyncHandler`, `setNoStore`.
+- `src/utils/translate.js` — backend translation module (`translateText`,
+  `LANGUAGES`, `isSupportedLang`, `splitIntoChunks`) used by `/api/translate`.
+- `src/routes/api.js` — all REST endpoints. Auth via JWT Bearer (algorithm is
+  pinned); RBAC via `auth` + `allow('ADMIN'|'BOS'|'USER')` middleware.
+  `publicUser()` shapes the user object; role is uppercased in tokens.
 - `src/routes/whatsapp/client.js` — Baileys integration (QR, pairing, send).
-  Exports a session map; key helpers: `createNewWhatsAppSession`,
-  `findReusableCodeSession`, `getWhatsAppStatus`, `listWhatsAppSessions`.
+  `sendMessage(sessionId, phone, text, media)` supports `{ mediaUrl, mediaType }`
+  (image/video with caption). Exports a session map; key helpers:
+  `createNewWhatsAppSession`, `findReusableCodeSession`, `getWhatsAppStatus`,
+  `listWhatsAppSessions`.
 - `src/routes/whatsapp/pairing-limit.js` — pure module: 4 pairing attempts per
   number, then a 10-minute cooldown (429 + Retry-After). Resets on success.
 - `public/index.html` + `public/app.js` — SPA. `ROLE_NAV` defines per-role
   pages; `loadContent` enforces `isPageAllowed`. Pages guard admin-only calls
-  with `canManage = role === 'admin' || 'bos'`.
+  with `canManage = role === 'admin' || 'bos'`. **Do not modify without an
+  explicit request** — keep the backend aligned to this contract instead.
 
 ## Conventions & gotchas
 
@@ -38,6 +49,16 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
   must have a matching `router.*` in `src/routes/api.js`.
 - USER-facing data (broadcasts, messages, withdrawals, dashboard) is filtered
   by ownership; ADMIN/BOS see everything. Preserve this when adding endpoints.
+- Requests reject prototype-pollution payloads (`__proto__`/`constructor`/
+  `prototype`) with 400 via a router-level guard in `api.js`.
+- Uploads: multer stores into `uploads/` with a sanitized filename and an
+  allowlist of extensions (`isAllowedUpload`); rejected types → 415, oversized
+  files → 413 (handled in `server.js`). Never serve `uploads/` with `index:true`.
+- Login/register/translate are rate-limited separately in `server.js`; login
+  counts ALL attempts (do not re-add `skipSuccessfulRequests` to login).
+- "Sesi berakhir" logout loop: caused by the server process dying on unhandled
+  rejections. `server.js` traps `unhandledRejection`/`uncaughtException` to keep
+  the gateway alive; `/api/auth/me` responses use `Cache-Control: no-store`.
 - Test data: `rm -f data/store.json` reseeds default users on next boot
   (ADMIN `ws-beatles-admin` / `ws-admin770088`, BOS `ws-beatles-boss` /
   `ws-boss7002043`). Do not commit `data/store.json` or WA auth dirs.

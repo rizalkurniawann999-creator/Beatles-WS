@@ -32,7 +32,40 @@ const {
   logoutWhatsApp,
 } = require('./whatsapp/client');
 
+const {
+  readStore,
+  saveStore,
+  publicUser,
+  normalizeNumber,
+} = require('../store');
+
+const {
+  VALID_NUMBER,
+  asyncHandler,
+  isValidPhone,
+  clampString,
+  sanitizeFilename,
+  isAllowedUpload,
+  hasUnsafeKeys,
+  setNoStore,
+} = require('../utils/helpers');
+
+const {
+  LANGUAGES,
+  isSupportedLang,
+  translateText,
+} = require('../utils/translate');
+
 const router = express.Router();
+
+// Tolak body JSON yang mencoba mencemari prototype (__proto__/constructor/
+// prototype) sebelum menyentuh handler mana pun.
+router.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object' && hasUnsafeKeys(req.body)) {
+    return res.status(400).json({ ok: false, error: 'Payload tidak valid.' });
+  }
+  return next();
+});
 
 // File unggahan disimpan di folder yang sama dengan yang disajikan server
 // pada rute /uploads, agar berkas yang diunggah benar-benar dapat diakses.
@@ -44,102 +77,28 @@ const upload = multer({
     destination: (_req, _file, cb) => cb(null, uploadDir),
     filename: (_req, file, cb) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + '-' + file.originalname);
+      // Nama asli dibersihkan agar tidak bisa keluar dari folder uploads
+      // (path traversal) maupun menyisipkan ekstensi berbahaya.
+      cb(null, `${uniqueSuffix}-${sanitizeFilename(file.originalname)}`);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }, // 10MB, satu berkas
+  fileFilter: (_req, file, cb) => {
+    if (!isAllowedUpload(file.originalname)) {
+      const error = new Error(
+        'Tipe berkas tidak diizinkan. Gunakan .txt, .csv, .json, atau gambar.'
+      );
+      error.code = 'UNSUPPORTED_FILE_TYPE';
+      return cb(error);
+    }
+    return cb(null, true);
+  },
 });
-
-const storePath = path.join(__dirname, '..', '..', 'data', 'store.json');
 
 const jwtSecret = process.env.JWT_SECRET;
 
-const VALID_NUMBER = /^\+?\d{8,15}$/;
-
 // ---------- Persistence ----------
-
-function defaultStore() {
-  const accounts = [
-    {
-      username: 'ws-beatles-admin',
-      passwordHash: bcrypt.hashSync('ws-admin770088', 10),
-      role: 'ADMIN',
-      name: 'Beatles Admin',
-    },
-    {
-      username: 'ws-beatles-boss',
-      passwordHash: bcrypt.hashSync('ws-boss7002043', 10),
-      role: 'BOS',
-      name: 'Beatles Boss',
-    },
-  ];
-
-  return {
-    users: accounts,
-    tariff: 150,
-    databases: [
-      {
-        id: 'db_default',
-        name: 'Promo Akhir Tahun',
-        totalNumbers: 500,
-        filePath: null,
-        tariffPerMsg: 150,
-        mediaType: 'text+photo',
-        templateContent: 'Halo, nikmati promo spesial akhir tahun dari kami!',
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    contacts: [],
-    templates: [],
-    withdrawals: [],
-    messages: [],
-    broadcasts: [],
-  };
-}
-
-function seedStore() {
-  if (fs.existsSync(storePath)) return;
-  saveStore(defaultStore());
-}
-
-function readStore() {
-  seedStore();
-
-  const store = JSON.parse(fs.readFileSync(storePath, 'utf8'));
-
-  // Migrasi ringan: pastikan semua koleksi selalu ada.
-  let changed = false;
-  const defaults = defaultStore();
-
-  for (const key of ['users', 'databases', 'contacts', 'templates', 'withdrawals', 'messages', 'broadcasts']) {
-    if (!Array.isArray(store[key])) {
-      store[key] = defaults[key];
-      changed = true;
-    }
-  }
-
-  if (typeof store.tariff !== 'number') {
-    store.tariff = defaults.tariff;
-    changed = true;
-  }
-
-  if (changed) saveStore(store);
-
-  return store;
-}
-
-function saveStore(store) {
-  fs.mkdirSync(path.dirname(storePath), { recursive: true });
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
-}
-
-function publicUser(user) {
-  return { username: user.username, role: user.role, name: user.name };
-}
-
-function normalizeNumber(value) {
-  return String(value || '').replace(/[^\d]/g, '');
-}
+// (dipindah ke src/store.js dan diimpor di atas)
 
 // ---------- Authentication & permissions ----------
 
@@ -159,7 +118,12 @@ function auth(req, res, next) {
   }
 
   try {
-    req.user = jwt.verify(match[1], jwtSecret, { issuer: 'beatles-ws' });
+    // Algoritma dipin ke HS256 agar token dengan alg lain (mis. "none") ditolak.
+    req.user = jwt.verify(match[1], jwtSecret, {
+      issuer: 'beatles-ws',
+      algorithms: ['HS256'],
+    });
+    setNoStore(res);
     return next();
   } catch {
     return res.status(401).json({ ok: false, error: 'Token tidak valid atau sesi berakhir.' });
@@ -178,7 +142,11 @@ function allow(...roles) {
 function handleError(res, error, fallback, status = 500) {
   console.error(`${fallback}:`, error.message);
 
-  const code = error.code === 'NOT_CONNECTED' ? 409 : status;
+  let code = status;
+
+  if (error.code === 'NOT_CONNECTED') code = 409;
+  else if (error.code === 'UNSUPPORTED_FILE_TYPE') code = 415;
+  else if (error.code === 'LIMIT_FILE_SIZE') code = 413;
 
   return res.status(code).json({ ok: false, error: error.message || fallback });
 }
@@ -222,8 +190,8 @@ router.post('/auth/login', (req, res) => {
     });
   }
 
-  const username = String(req.body?.username || '').trim().toLowerCase();
-  const password = String(req.body?.password || '');
+  const username = String(req.body?.username || '').trim().toLowerCase().slice(0, 64);
+  const password = String(req.body?.password || '').slice(0, 200);
 
   const store = readStore();
   const user = store.users.find((item) => item.username === username);
@@ -235,7 +203,10 @@ router.post('/auth/login', (req, res) => {
   const token = jwt.sign(publicUser(user), jwtSecret, {
     expiresIn: '8h',
     issuer: 'beatles-ws',
+    algorithm: 'HS256',
   });
+
+  setNoStore(res);
 
   return res.json({
     ok: true,
@@ -246,7 +217,7 @@ router.post('/auth/login', (req, res) => {
 });
 
 router.post('/auth/register', (req, res) => {
-  const name = String(req.body?.name || '').trim();
+  const name = clampString(req.body?.name, 80);
   const username = String(req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
 
@@ -261,8 +232,8 @@ router.post('/auth/register', (req, res) => {
     });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ ok: false, error: 'Password minimal 6 karakter.' });
+  if (password.length < 6 || password.length > 200) {
+    return res.status(400).json({ ok: false, error: 'Password 6-200 karakter.' });
   }
 
   const store = readStore();
@@ -323,10 +294,16 @@ router.get('/admin/databases', auth, allow('ADMIN', 'BOS'), (_req, res) => {
 
 router.post('/admin/databases', auth, allow('ADMIN'), upload.single('file'), (req, res) => {
   try {
-    const name = String(req.body?.name || 'Kategori Baru').trim().slice(0, 80);
+    const name = clampString(req.body?.name || 'Kategori Baru', 80) || 'Kategori Baru';
     const tariffPerMsg = Number(req.body?.tariffPerMsg || 150);
-    const templateContent = String(req.body?.templateContent || '').trim().slice(0, 2000);
-    const mediaType = String(req.body?.mediaType || 'text').trim();
+    const mediaType = clampString(req.body?.mediaType || 'text', 20) || 'text';
+
+    // Template pesan Stok DB: "Nama | Teks | URL | Foto". Masing-masing bagian
+    // opsional kecuali teks. Foto boleh berupa URL atau path hasil unggahan.
+    const templateContent = clampString(req.body?.templateContent, 4000);
+    const templateName = clampString(req.body?.templateName, 80);
+    const mediaUrl = clampString(req.body?.mediaUrl, 2048);
+    const photoUrl = clampString(req.body?.photoUrl, 2048);
 
     let totalNumbers = 0;
     let filePath = null;
@@ -353,9 +330,12 @@ router.post('/admin/databases', auth, allow('ADMIN'), upload.single('file'), (re
       name,
       totalNumbers,
       filePath,
-      tariffPerMsg,
+      tariffPerMsg: Number.isFinite(tariffPerMsg) ? tariffPerMsg : 150,
       mediaType,
+      templateName,
       templateContent,
+      mediaUrl,
+      photoUrl,
       createdAt: new Date().toISOString(),
     };
 
@@ -453,8 +433,10 @@ router.get('/templates', auth, (req, res) => {
 });
 
 router.post('/templates', auth, allow('ADMIN', 'BOS'), (req, res) => {
-  const name = String(req.body?.name || '').trim().slice(0, 80);
-  const content = String(req.body?.content || '').trim().slice(0, 2000);
+  const name = clampString(req.body?.name, 80);
+  const content = clampString(req.body?.content, 4000);
+  const mediaUrl = clampString(req.body?.mediaUrl || req.body?.photoUrl, 2048);
+  const mediaType = clampString(req.body?.mediaType || 'image', 20).toLowerCase();
 
   if (!name || !content) {
     return res.status(400).json({ ok: false, error: 'Nama dan isi template wajib diisi.' });
@@ -467,6 +449,8 @@ router.post('/templates', auth, allow('ADMIN', 'BOS'), (req, res) => {
     id: `tpl_${Date.now()}`,
     name,
     content,
+    mediaUrl: mediaUrl || '',
+    mediaType: ['image', 'video'].includes(mediaType) ? mediaType : 'image',
     owner: req.user.username,
     active: true,
     createdAt: new Date().toISOString(),
@@ -487,7 +471,7 @@ router.patch('/templates/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
   }
 
   if (req.body?.name !== undefined) {
-    const name = String(req.body.name).trim().slice(0, 80);
+    const name = clampString(req.body.name, 80);
     if (!name) {
       return res.status(400).json({ ok: false, error: 'Nama template tidak boleh kosong.' });
     }
@@ -495,11 +479,20 @@ router.patch('/templates/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
   }
 
   if (req.body?.content !== undefined) {
-    const content = String(req.body.content).trim().slice(0, 2000);
+    const content = clampString(req.body.content, 4000);
     if (!content) {
       return res.status(400).json({ ok: false, error: 'Isi template tidak boleh kosong.' });
     }
     item.content = content;
+  }
+
+  if (req.body?.mediaUrl !== undefined || req.body?.photoUrl !== undefined) {
+    item.mediaUrl = clampString(req.body.mediaUrl || req.body.photoUrl, 2048);
+  }
+
+  if (req.body?.mediaType !== undefined) {
+    const mediaType = clampString(req.body.mediaType, 20).toLowerCase();
+    item.mediaType = ['image', 'video'].includes(mediaType) ? mediaType : 'image';
   }
 
   if (req.body?.active !== undefined) {
@@ -532,14 +525,14 @@ router.delete('/templates/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
 function sanitizeContact(body) {
   const phone = normalizeNumber(body?.phone);
 
-  if (!VALID_NUMBER.test(phone)) {
+  if (!isValidPhone(phone)) {
     return { error: 'Nomor tidak valid. Gunakan 8-15 digit angka.' };
   }
 
   return {
     phone,
-    name: String(body?.name || '').trim().slice(0, 80),
-    tag: String(body?.tag || '').trim().slice(0, 40),
+    name: clampString(body?.name, 80),
+    tag: clampString(body?.tag, 40),
   };
 }
 
@@ -741,6 +734,21 @@ router.post('/contacts/check', auth, allow('ADMIN', 'BOS', 'USER'), async (req, 
 
 // ---------- Messaging ----------
 
+/**
+ * Mengambil opsi media (foto/URL) dari body permintaan pengiriman. Mendukung
+ * `mediaUrl`/`photoUrl` + `mediaType`, sehingga template "Teks | URL | Foto"
+ * pada Stok DB bisa dikirim sebagai gambar dengan caption.
+ */
+function mediaOptionsFrom(body) {
+  const mediaUrl = clampString(body?.mediaUrl || body?.photoUrl || body?.image, 2048);
+  if (!mediaUrl) return null;
+
+  const rawType = clampString(body?.mediaType || 'image', 20).toLowerCase();
+  const type = ['image', 'video'].includes(rawType) ? rawType : 'image';
+
+  return { mediaUrl, mediaType: type };
+}
+
 function logMessage(store, entry) {
   if (!store.messages) store.messages = [];
   store.messages.unshift(entry);
@@ -764,18 +772,19 @@ router.get('/messages', auth, (req, res) => {
 router.post('/send-message', auth, allow('ADMIN', 'BOS', 'USER'), async (req, res) => {
   const sessionId = resolveActiveSession(req.body?.sessionId);
   const phone = normalizeNumber(req.body?.phone || req.body?.to);
-  const text = String(req.body?.message ?? req.body?.text ?? '').trim();
+  const text = clampString(req.body?.message ?? req.body?.text ?? '', 8000);
+  const media = mediaOptionsFrom(req.body);
 
-  if (!VALID_NUMBER.test(phone)) {
+  if (!isValidPhone(phone)) {
     return res.status(400).json({ ok: false, error: 'Nomor tujuan tidak valid.' });
   }
 
-  if (!text) {
+  if (!text && !media) {
     return res.status(400).json({ ok: false, error: 'Isi pesan tidak boleh kosong.' });
   }
 
   try {
-    const result = await sendMessage(sessionId, phone, text);
+    const result = await sendMessage(sessionId, phone, text, media || {});
 
     const store = readStore();
     logMessage(store, {
@@ -784,6 +793,7 @@ router.post('/send-message', auth, allow('ADMIN', 'BOS', 'USER'), async (req, re
       sessionId,
       phone,
       text,
+      mediaUrl: media ? media.mediaUrl : null,
       status: result.status,
       detail: result.detail,
       messageId: result.messageId || null,
@@ -818,7 +828,7 @@ function runBroadcast(job) {
       job.current = i + 1;
 
       try {
-        const result = await sendMessage(job.sessionId, phone, job.message);
+        const result = await sendMessage(job.sessionId, phone, job.message, job.media || {});
         job.sent += result.success ? 1 : 0;
 
         if (!result.success) {
@@ -833,6 +843,7 @@ function runBroadcast(job) {
           sessionId: job.sessionId,
           phone,
           text: job.message,
+          mediaUrl: job.media ? job.media.mediaUrl : null,
           status: result.status,
           detail: result.detail,
           broadcastId: job.id,
@@ -876,10 +887,11 @@ function runBroadcast(job) {
 
 router.post('/broadcast', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
   const sessionId = resolveActiveSession(req.body?.sessionId);
-  const text = String(req.body?.message ?? req.body?.text ?? '').trim();
+  const text = clampString(req.body?.message ?? req.body?.text ?? '', 8000);
   const speed = String(req.body?.speed || 'safe').toLowerCase();
+  const media = mediaOptionsFrom(req.body);
 
-  if (!text) {
+  if (!text && !media) {
     return res.status(400).json({ ok: false, error: 'Isi pesan tidak boleh kosong.' });
   }
 
@@ -926,6 +938,7 @@ router.post('/broadcast', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
     username: req.user.username,
     sessionId,
     message: text,
+    media,
     phones,
     delayMs,
     total: phones.length,
@@ -1406,6 +1419,48 @@ router.post('/whatsapp/logout', auth, allow('ADMIN', 'BOS'), async (req, res) =>
     return handleError(res, error, 'Gagal logout sesi.', 400);
   }
 });
+
+// ---------- Translate (pesan WhatsApp) ----------
+// Semua role boleh memakai fitur terjemahan untuk menyiapkan pesan.
+router.get('/translate/languages', auth, (_req, res) => {
+  res.json({ ok: true, languages: LANGUAGES });
+});
+
+router.post(
+  '/translate',
+  auth,
+  asyncHandler(async (req, res) => {
+    const text = clampString(req.body?.text ?? req.body?.message, 8000);
+    const target = clampString(req.body?.target || req.body?.to, 10).toLowerCase();
+    const source = clampString(req.body?.source || req.body?.from || 'auto', 10).toLowerCase();
+
+    if (!text) {
+      return res.status(400).json({ ok: false, error: 'Teks yang diterjemahkan tidak boleh kosong.' });
+    }
+
+    if (!isSupportedLang(target) || target === 'auto') {
+      return res.status(400).json({ ok: false, error: 'Bahasa tujuan tidak didukung.' });
+    }
+
+    if (!isSupportedLang(source)) {
+      return res.status(400).json({ ok: false, error: 'Bahasa sumber tidak didukung.' });
+    }
+
+    try {
+      const result = await translateText(text, target, source);
+
+      return res.json({
+        ok: true,
+        text: result.text,
+        source: result.detectedSource,
+        target: result.target,
+        original: text,
+      });
+    } catch (error) {
+      return handleError(res, error, 'Gagal menerjemahkan teks.', 502);
+    }
+  })
+);
 
 // ---------- Fallback ----------
 

@@ -91,12 +91,16 @@ Catatan penting:
 ## 🧩 Struktur Proyek
 ```
 src/
-  server.js                 # Entry point Express + static frontend
+  server.js                 # Entry point Express + static frontend + rate limit
+  store.js                  # Baca/tulis data/store.json + seed default (memoized)
   routes/
     api.js                  # REST API (auth, dashboard, admin, whatsapp, dll)
     whatsapp/
       client.js             # Integrasi Baileys (QR, pairing code, kirim pesan)
       pairing-limit.js      # Pembatas 4x pairing berturut-turut + cooldown
+  utils/
+    helpers.js              # Validasi nomor/sesi, sanitasi nama berkas, asyncHandler
+    translate.js            # Terjemahan pesan (endpoint /api/translate)
 public/
   index.html                # Frontend SPA (Tailwind CDN)
   app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
@@ -109,7 +113,7 @@ uploads/                    # Berkas database (.txt) yang diunggah ADMIN
 - `npm start` — menjalankan server produksi.
 - `npm run dev` — menjalankan server dengan `--watch`.
 - `npm run check` — validasi sintaks semua berkas sumber.
-- `npm test` — uji unit pembatas pairing.
+- `npm test` — uji unit (pembatas pairing, helper keamanan, ketahanan server).
 - `npm run test:e2e` — uji API end-to-end (RBAC + kepemilikan broadcast). Server harus sudah jalan.
 - `npm run cf:install` — memasang cloudflared CLI (idempoten).
 - `npm run cf:status` — cek kesiapan Cloudflare (cloudflared, login, token).
@@ -190,4 +194,6 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | GET    | `/api/whatsapp/sessions`      | ADMIN, BOS |
 | POST   | `/api/whatsapp/disconnect`    | ADMIN, BOS |
 | POST   | `/api/whatsapp/logout`        | ADMIN, BOS |
+| GET    | `/api/translate/languages`    | Login      |
+| POST   | `/api/translate`              | Login      |
 
