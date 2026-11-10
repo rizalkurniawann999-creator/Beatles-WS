@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beatles-WS | Professional WhatsApp Management</title>
+    <title>Beatles-WS | Enterprise WhatsApp Management & Blasting Platform</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -37,7 +39,7 @@
         :root { color-scheme: dark; }
         body { background: #0b1120; }
         .video-bg { position: fixed; right: 0; bottom: 0; min-width: 100%; min-height: 100%; z-index: -1; object-fit: cover; opacity: 0.22; }
-        .glass-panel { background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(34, 211, 238, 0.18); }
+        .glass-panel { background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(34, 211, 238, 0.18); }
         .glow-focus:focus { box-shadow: 0 0 0 1px rgba(34,211,238,0.6), 0 0 18px rgba(34,211,238,0.28); }
         .glow-ring { box-shadow: 0 0 22px rgba(34,211,238,0.28); }
         .neon-text { text-shadow: 0 0 12px rgba(34,211,238,0.55); }
@@ -46,47 +48,36 @@
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
         .gradient-border { position: relative; }
         .gradient-border::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(34,211,238,0.6), rgba(16,185,129,0.35), rgba(194,155,97,0.5)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
-        #toast-stack { position: fixed; top: 1rem; right: 1rem; z-index: 60; display: flex; flex-direction: column; gap: .6rem; max-width: min(92vw, 380px); }
+        #toast-stack { position: fixed; top: 1rem; right: 1rem; z-index: 99; display: flex; flex-direction: column; gap: .6rem; max-width: min(92vw, 380px); }
         .toast { animation: toastIn .28s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
-        .nav-active { background: rgba(34,211,238,0.12); color: #22d3ee; box-shadow: inset 4px 0 0 rgba(34,211,238,1); }
+        .nav-active { background: rgba(34,211,238,0.14); color: #22d3ee; box-shadow: inset 4px 0 0 rgba(34,211,238,1); }
         .status-dot { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; }
-        .modal-backdrop { background: rgba(2,6,23,0.7); backdrop-filter: blur(4px); }
-        .spinner { width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 999px; animation: spin .7s linear infinite; display: inline-block; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-beatles-900 text-slate-300 font-sans antialiased overflow-x-hidden">
+<body class="bg-beatles-900 text-slate-300 font-sans antialiased overflow-x-hidden min-h-screen flex flex-col">
 
     <div id="toast-stack"></div>
 
-    <!-- LANGUAGE SELECTOR FLOATING -->
-    <div class="fixed top-4 right-4 z-50">
-        <select id="lang-selector" onchange="changeLanguage(this.value)" class="bg-slate-800/90 border border-beatles-cyan/30 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-beatles-cyan shadow-lg">
-            <option value="id">🇮🇩 Indonesia</option>
-            <option value="en">🇬🇧 English</option>
-        </select>
-    </div>
-
-    <!-- CONSOLE / LANDING PAGE -->
+    <!-- LANDING / CONSOLE VIEW -->
     <div id="view-console" class="relative min-h-screen flex flex-col items-center justify-center p-4">
         <video autoplay loop muted playsinline class="video-bg">
             <source src="assets/video_2.mp4" type="video/mp4">
         </video>
-        <div class="z-10 text-center glass-panel gradient-border p-10 md:p-14 rounded-3xl shadow-2xl transform transition duration-500 hover:scale-105 max-w-lg w-full animate-floaty">
+        <div class="z-10 text-center glass-panel gradient-border p-10 md:p-14 rounded-3xl shadow-2xl max-w-lg w-full animate-floaty">
             <div class="flex justify-center mb-6">
                 <img src="assets/logo.png" alt="Beatles-WS Logo" class="w-32 h-32 md:w-36 md:h-36 object-cover rounded-2xl glow-ring border-2 border-beatles-cyan/50">
             </div>
             <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-widest neon-text">BEATLES-<span class="text-beatles-cyan">WS</span></h1>
-            <p id="t-subtitle" class="text-xs md:text-sm text-beatles-bronze uppercase tracking-widest font-semibold mb-4">Global Platform Solutions</p>
-            <p id="t-desc" class="text-sm md:text-base text-slate-300 mb-8 font-light tracking-wide leading-relaxed">Kelola automasi dan pesan WhatsApp Anda dengan mudah, aman, dan profesional.</p>
-            <button onclick="showAuth()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3.5 px-8 rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)] hover:shadow-[0_0_32px_rgba(34,211,238,0.9)] tracking-wide">
-                <span id="t-enter-btn">Masuk ke Dashboard</span> <i class="fas fa-arrow-right ml-2"></i>
+            <p class="text-xs md:text-sm text-beatles-bronze uppercase tracking-widest font-semibold mb-4">Enterprise WhatsApp Automation</p>
+            <p class="text-sm md:text-base text-slate-300 mb-8 font-light tracking-wide leading-relaxed">Platform manajemen WhatsApp profesional dengan Multi-DB, Multi-Server, dan Anti-Blast Security.</p>
+            <button onclick="showAuth()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3.5 px-8 rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.6)] tracking-wide">
+                Masuk ke Platform <i class="fas fa-arrow-right ml-2"></i>
             </button>
         </div>
     </div>
 
-    <!-- AUTHENTICATION PAGE (LOGIN & REGISTER) -->
+    <!-- AUTHENTICATION VIEW -->
     <div id="view-auth" class="hidden relative min-h-screen flex items-center justify-center p-4">
         <video autoplay loop muted playsinline class="video-bg opacity-30">
             <source src="assets/video_1.mp4" type="video/mp4">
@@ -99,61 +90,59 @@
 
             <!-- Login Form -->
             <div id="form-login">
-                <h2 id="t-login-title" class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Selamat Datang!</h2>
-                <p id="t-login-sub" class="text-center text-xs text-slate-400 mb-6">Sistem Terenkripsi &amp; Aman</p>
+                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Autentikasi Sistem</h2>
+                <p class="text-center text-xs text-slate-400 mb-6">Pilih role: <b>boss</b>, <b>admin</b>, atau <b>user</b></p>
                 <div class="space-y-5">
                     <div>
-                        <label id="t-lbl-user" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
                         <div class="relative">
                             <i class="fas fa-user absolute left-3 top-3.5 text-slate-500"></i>
-                            <input type="text" id="login-username" autocomplete="username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan username">
+                            <input type="text" id="login-username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="boss / admin / user">
                         </div>
                     </div>
                     <div>
-                        <label id="t-lbl-pass" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
                         <div class="relative">
                             <i class="fas fa-lock absolute left-3 top-3.5 text-slate-500"></i>
-                            <input type="password" id="login-password" autocomplete="current-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Masukkan kata sandi">
+                            <input type="password" id="login-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-beatles-cyan focus:outline-none transition-all" placeholder="Kata sandi...">
                         </div>
                     </div>
                     <div id="auth-error" class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
-                    <button id="login-btn" onclick="submitLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
-                        <span id="t-login-action">Masuk Sekarang</span>
+                    <button onclick="submitLogin()" class="w-full bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] mt-2">
+                        Masuk Dashboard
                     </button>
-                    <p class="text-center text-sm text-slate-400 mt-4"><span id="t-no-acc">Belum punya akun?</span> <a href="#" onclick="toggleAuth('register')" class="text-beatles-cyan font-semibold hover:underline"><span id="t-reg-link">Daftar di sini</span></a></p>
+                    <p class="text-center text-sm text-slate-400 mt-4">Belum punya akun? <a href="#" onclick="toggleAuth('register')" class="text-beatles-cyan font-semibold hover:underline">Daftar Klien</a></p>
                 </div>
             </div>
 
             <!-- Register Form -->
             <div id="form-register" class="hidden">
-                <h2 id="t-reg-title" class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Buat Akun Baru</h2>
-                <p id="t-reg-sub" class="text-center text-xs text-slate-400 mb-6">Bergabung dengan ekosistem Beatles-WS</p>
+                <h2 class="text-3xl font-bold text-white mb-2 text-center tracking-wide">Registrasi Klien Baru</h2>
+                <p class="text-center text-xs text-slate-400 mb-6">Bergabung dengan platform Beatles-WS</p>
                 <div class="space-y-4">
                     <div>
-                        <label id="t-lbl-name" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Lengkap</label>
-                        <input type="text" id="register-name" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Nama Lengkap</label>
+                        <input type="text" id="reg-name" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
                     </div>
                     <div>
-                        <label id="t-lbl-reg-user" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
-                        <input type="text" id="register-username" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Username</label>
+                        <input type="text" id="reg-user" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
                     </div>
                     <div>
-                        <label id="t-lbl-reg-pass" class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
-                        <input type="password" id="register-password" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none transition-all">
+                        <label class="block text-xs font-semibold text-beatles-cyan mb-1 uppercase tracking-wider">Kata Sandi</label>
+                        <input type="password" id="reg-pass" class="glow-focus w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2.5 px-4 text-white focus:border-beatles-cyan focus:outline-none">
                     </div>
-                    <div id="register-error" class="hidden text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></div>
-                    <button id="register-btn" onclick="submitRegister()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(34,211,238,0.4)] mt-4">
-                        <span id="t-reg-action">Daftar &amp; Lanjut Login</span>
+                    <button onclick="submitRegister()" class="w-full bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 font-bold py-3 rounded-lg transition-all mt-4">
+                        Daftar Sekarang
                     </button>
-                    <p class="text-center text-sm text-slate-400 mt-4"><span id="t-has-acc">Sudah punya akun?</span> <a href="#" onclick="toggleAuth('login')" class="text-beatles-emerald font-semibold hover:underline"><span id="t-login-link">Masuk</span></a></p>
+                    <p class="text-center text-sm text-slate-400 mt-4">Sudah punya akun? <a href="#" onclick="toggleAuth('login')" class="text-beatles-emerald font-semibold hover:underline">Masuk</a></p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- DASHBOARD WRAPPER -->
+    <!-- MAIN DASHBOARD VIEW -->
     <div id="view-dashboard" class="hidden min-h-screen bg-beatles-900 flex">
-        <!-- MOBILE SIDEBAR BACKDROP -->
         <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden" onclick="toggleSidebar(false)"></div>
 
         <!-- SIDEBAR -->
@@ -164,7 +153,7 @@
                     <h2 class="text-xl font-black text-white tracking-widest">BEATLES-<span class="text-beatles-cyan">WS</span></h2>
                 </div>
                 <div class="mt-2 py-1 px-3 bg-slate-800 rounded-full border border-slate-600">
-                    <p id="user-role-display" class="text-[10px] text-beatles-emerald uppercase font-bold tracking-widest"></p>
+                    <p id="user-role-display" class="text-[10px] text-beatles-emerald uppercase font-bold tracking-widest">Role</p>
                 </div>
             </div>
 
@@ -172,12 +161,12 @@
 
             <div class="p-4 border-t border-slate-700">
                 <button onclick="logout()" class="w-full flex items-center justify-center space-x-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-2.5 rounded-lg transition-all font-semibold">
-                    <i class="fas fa-sign-out-alt"></i> <span id="t-logout">Keluar</span>
+                    <i class="fas fa-sign-out-alt"></i> <span>Keluar</span>
                 </button>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
+        <!-- CONTENT AREA -->
         <main class="flex-1 flex flex-col h-screen overflow-y-auto scrollbar-thin bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-800/60 via-beatles-900 to-beatles-900">
             <header class="glass-panel border-b border-slate-700 p-4 flex justify-between items-center sticky top-0 z-20">
                 <div class="flex items-center space-x-4">
@@ -187,10 +176,10 @@
                 <div class="flex items-center space-x-4">
                     <div id="wa-status-pill" class="hidden sm:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 rounded-full px-3 py-1.5">
                         <span id="wa-status-dot" class="status-dot bg-slate-500"></span>
-                        <span id="wa-status-text" class="text-xs font-semibold text-slate-300">Memeriksa...</span>
+                        <span id="wa-status-text" class="text-xs font-semibold text-slate-300">WhatsApp Terhubung</span>
                     </div>
                     <div class="text-right hidden sm:block">
-                        <p class="text-sm text-white font-semibold" id="top-username">User</p>
+                        <p class="text-sm text-white font-semibold" id="top-username">Sanur Badarudin</p>
                         <p class="text-xs text-beatles-cyan" id="top-role">Online</p>
                     </div>
                     <div class="w-10 h-10 rounded-full bg-slate-800 border-2 border-beatles-cyan flex items-center justify-center text-white glow-ring">
@@ -199,16 +188,626 @@
                 </div>
             </header>
 
-            <div class="p-4 md:p-8" id="dashboard-content"></div>
+            <div class="p-4 md:p-8 flex-1" id="dashboard-content"></div>
         </main>
     </div>
 
-    <!-- MODAL -->
-    <div id="modal-root" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-        <div id="modal-card" class="glass-panel gradient-border rounded-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto scrollbar-thin shadow-2xl"></div>
-    </div>
+    <!-- SCRIPT LOGIC -->
+    <script>
+        let currentUser = { username: 'boss', role: 'boss', name: 'Sanur Badarudin (Boss)' };
+        let currentTab = 'dashboard';
 
-    <script src="app.js"></script>
+        let databases = [
+            { id: 1, name: 'Klien VIP Jakarta', count: 1250, date: '2026-11-10', filename: 'kontak_vip_jkt.txt' },
+            { id: 2, name: 'Reseller Bandung', count: 430, date: '2026-11-09', filename: 'reseller_bdg.xlsx' }
+        ];
+
+        let templates = [
+            { id: 1, name: 'Promo November Hemat', text: 'Halo {name}, nikmati diskon spesial produk kami bulan ini!', url: 'https://example.com/promo', media: 'promo.mp4', mediaType: 'video' },
+            { id: 2, name: 'Informasi Tagihan', text: 'Yth. {name}, tagihan Anda telah terbit. Silakan cek tautan berikut.', url: 'https://example.com/billing', media: 'banner.jpg', mediaType: 'image' }
+        ];
+
+        let stats = {
+            totalSent: 16800,
+            monthlyDelivery: { 'Jan': 1200, 'Feb': 1450, 'Mar': 1600, 'Apr': 1550, 'Mei': 1700, 'Jun': 1800, 'Jul': 1650, 'Agu': 1900, 'Sep': 1750, 'Okt': 1850, 'Nov': 1250 },
+            countryStats: { 'Indonesia (+62)': 15200, 'Malaysia (+60)': 1100, 'Singapore (+65)': 500 }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSession();
+        });
+
+        function showToast(message, type = 'success') {
+            const stack = document.getElementById('toast-stack');
+            const toast = document.createElement('div');
+            const colors = { success: 'bg-emerald-600 border-emerald-500', error: 'bg-rose-600 border-rose-500', info: 'bg-cyan-600 border-cyan-500' };
+            toast.className = `toast ${colors[type] || colors.success} text-white px-4 py-3 rounded-xl shadow-xl border text-xs flex items-center justify-between gap-3`;
+            toast.innerHTML = `<span><i class="fas fa-info-circle mr-2"></i> ${message}</span>`;
+            stack.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity .3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function showAuth() {
+            document.getElementById('view-console').classList.add('hidden');
+            document.getElementById('view-auth').classList.remove('hidden');
+            toggleAuth('login');
+        }
+
+        function toggleAuth(mode) {
+            const loginForm = document.getElementById('form-login');
+            const regForm = document.getElementById('form-register');
+            if (mode === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+            }
+        }
+
+        function submitLogin() {
+            const user = document.getElementById('login-username').value.trim().toLowerCase();
+            const pass = document.getElementById('login-password').value.trim();
+            const errBox = document.getElementById('auth-error');
+
+            if (!user || !pass) {
+                errBox.innerText = 'Username dan kata sandi wajib diisi!';
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            if (['boss', 'admin', 'user'].includes(user)) {
+                currentUser = { 
+                    username: user, 
+                    role: user, 
+                    name: user === 'boss' ? 'Sanur Badarudin (Boss)' : (user === 'admin' ? 'Administrator Sistem' : 'Client User') 
+                };
+                localStorage.setItem('beatles_user', JSON.stringify(currentUser));
+                errBox.classList.add('hidden');
+                showToast(`Berhasil masuk sebagai ${user.toUpperCase()}`);
+                startDashboard();
+            } else {
+                errBox.innerText = 'Gunakan username "boss", "admin", atau "user" untuk demo!';
+                errBox.classList.remove('hidden');
+            }
+        }
+
+        function submitRegister() {
+            const name = document.getElementById('reg-name').value.trim();
+            const user = document.getElementById('reg-user').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
+
+            if (!name || !user || !pass) {
+                showToast('Semua kolom registrasi wajib diisi!', 'error');
+                return;
+            }
+
+            currentUser = { username: user, role: 'user', name: name };
+            localStorage.setItem('beatles_user', JSON.stringify(currentUser));
+            showToast('Registrasi berhasil! Selamat datang.');
+            startDashboard();
+        }
+
+        function checkSession() {
+            const saved = localStorage.getItem('beatles_user');
+            if (saved) {
+                try {
+                    currentUser = JSON.parse(saved);
+                    startDashboard();
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function startDashboard() {
+            document.getElementById('view-console').classList.add('hidden');
+            document.getElementById('view-auth').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+
+            document.getElementById('top-username').innerText = currentUser.name;
+            document.getElementById('top-role').innerText = `Role: ${currentUser.role.toUpperCase()}`;
+            document.getElementById('user-role-display').innerText = currentUser.role.toUpperCase();
+
+            renderSidebar();
+            renderContent();
+        }
+
+        function logout() {
+            localStorage.removeItem('beatles_user');
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-console').classList.remove('hidden');
+            showToast('Berhasil keluar dari sistem', 'info');
+        }
+
+        function toggleSidebar(show) {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (show) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function renderSidebar() {
+            const nav = document.getElementById('sidebar-nav');
+            let html = '';
+
+            if (currentUser.role === 'boss') {
+                html = `
+                    <button onclick="changeTab('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'dashboard' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-chart-pie w-5"></i><span>Dashboard Boss</span></button>
+                    <button onclick="changeTab('stokdb')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'stokdb' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-database w-5"></i><span>Stok DB &amp; Template</span></button>
+                    <button onclick="changeTab('logs')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'logs' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-history w-5"></i><span>Logs Pengiriman</span></button>
+                `;
+            } else if (currentUser.role === 'admin') {
+                html = `
+                    <button onclick="changeTab('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'dashboard' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-chart-line w-5"></i><span>Statistik User</span></button>
+                    <button onclick="changeTab('multiserver')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'multiserver' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-server w-5"></i><span>Multi Server</span></button>
+                    <button onclick="changeTab('stokdb')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'stokdb' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-database w-5"></i><span>Database &amp; Template</span></button>
+                    <button onclick="changeTab('withdrawal')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'withdrawal' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-wallet w-5"></i><span>ACC Withdrawal</span></button>
+                    <button onclick="changeTab('users')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'users' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-users-gear w-5"></i><span>User Management</span></button>
+                    <button onclick="changeTab('announcement')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'announcement' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-bullhorn w-5"></i><span>Pengumuman</span></button>
+                    <button onclick="changeTab('settings')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'settings' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-gear w-5"></i><span>Settings</span></button>
+                `;
+            } else {
+                html = `
+                    <button onclick="changeTab('dashboard')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'dashboard' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-house w-5"></i><span>Dashboard User</span></button>
+                    <button onclick="changeTab('pairing')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'pairing' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fab fa-whatsapp w-5"></i><span>Pairing WhatsApp (Max 4x)</span></button>
+                    <button onclick="changeTab('clientdb')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-semibold transition ${currentTab === 'clientdb' ? 'nav-active' : 'text-slate-400 hover:text-white hover:bg-slate-800/40'}"><i class="fas fa-address-book w-5"></i><span>Database &amp; Template Klien</span></button>
+                `;
+            }
+            nav.innerHTML = html;
+        }
+
+        function changeTab(tab) {
+            currentTab = tab;
+            renderSidebar();
+            renderContent();
+            toggleSidebar(false);
+        }
+
+        function renderContent() {
+            const container = document.getElementById('dashboard-content');
+            const title = document.getElementById('page-title');
+
+            const antiBlastWarning = `
+                <div class="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center space-x-3 text-amber-300 text-xs shadow-lg">
+                    <i class="fas fa-triangle-exclamation text-xl text-amber-400"></i>
+                    <div>
+                        <span class="font-bold">PERINGATAN KEAMANAN SISTEM:</span> Akun <b>${currentUser.role.toUpperCase()}</b> strict DILARANG IKUT NGE-BLAST langsung demi menjaga stabilitas server pusat!
+                    </div>
+                </div>
+            `;
+
+            if (currentUser.role === 'boss') {
+                if (currentTab === 'dashboard') {
+                    title.innerText = 'Dashboard Boss (Owner)';
+                    container.innerHTML = `
+                        ${antiBlastWarning}
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Total Pengiriman Pesan</p>
+                                <h4 class="text-3xl font-black text-white mt-2">${stats.totalSent.toLocaleString()}</h4>
+                                <span class="text-xs text-beatles-emerald mt-1 inline-block"><i class="fas fa-arrow-up"></i> +12.4% dari bulan lalu</span>
+                            </div>
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Kategori Multi-DB Aktif</p>
+                                <h4 class="text-3xl font-black text-white mt-2">${databases.length} Kategori</h4>
+                                <span class="text-xs text-beatles-cyan mt-1 inline-block">Tersinkronisasi dengan Admin</span>
+                            </div>
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Template &amp; Media</p>
+                                <h4 class="text-3xl font-black text-white mt-2">${templates.length} Template</h4>
+                                <span class="text-xs text-beatles-bronze mt-1 inline-block">Mendukung Foto &amp; Video</span>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel p-6 rounded-2xl">
+                            <h4 class="text-base font-bold text-white mb-4"><i class="fas fa-chart-bar text-beatles-cyan mr-2"></i> Statistik Pengiriman Bulanan</h4>
+                            <div class="grid grid-cols-6 md:grid-cols-12 gap-2 items-end h-52 pt-6">
+                                ${Object.entries(stats.monthlyDelivery).map(([mon, val]) => `
+                                    <div class="flex flex-col items-center gap-2">
+                                        <div style="height: ${(val / 2000)*100}%" class="w-full bg-beatles-cyan/80 rounded-t-lg hover:bg-cyan-400 transition relative group">
+                                            <span class="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">${val}</span>
+                                        </div>
+                                        <span class="text-[10px] text-slate-400">${mon}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'stokdb') {
+                    title.innerText = 'Stok DB & Template (Boss Panel)';
+                    container.innerHTML = renderStokDBHTML();
+                } else if (currentTab === 'logs') {
+                    title.innerText = 'Logs Pengiriman Pesan';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl">
+                            <h4 class="text-base font-bold text-white mb-4"><i class="fas fa-history text-beatles-cyan mr-2"></i> Riwayat Pengiriman &amp; Log Sistem</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="border-b border-slate-700 text-slate-400">
+                                        <tr>
+                                            <th class="pb-3">Waktu</th>
+                                            <th class="pb-3">Nomor Target</th>
+                                            <th class="pb-3">Kategori DB</th>
+                                            <th class="pb-3">Template</th>
+                                            <th class="pb-3">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        <tr>
+                                            <td class="py-3 text-slate-400">2026-11-10 08:30</td>
+                                            <td class="py-3 font-mono text-white">+628123456789</td>
+                                            <td class="py-3">Klien VIP Jakarta</td>
+                                            <td class="py-3">Promo November Hemat</td>
+                                            <td class="py-3"><span class="px-2 py-0.5 bg-beatles-emerald/20 text-beatles-emerald rounded-full">Terkirim</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (currentUser.role === 'admin') {
+                if (currentTab === 'dashboard') {
+                    title.innerText = 'Statistik User & Sistem';
+                    container.innerHTML = `
+                        ${antiBlastWarning}
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Statistik Negara Tujuan</p>
+                                <div class="mt-4 space-y-2">
+                                    ${Object.entries(stats.countryStats).map(([c, count]) => `
+                                        <div class="flex justify-between text-xs">
+                                            <span class="text-slate-300">${c}</span>
+                                            <span class="font-bold text-white">${count.toLocaleString()}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Total User Aktif</p>
+                                <h4 class="text-3xl font-black text-white mt-2">124 User</h4>
+                                <span class="text-xs text-beatles-emerald mt-1 inline-block">Semua server stabil</span>
+                            </div>
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Withdrawal Pending</p>
+                                <h4 class="text-3xl font-black text-white mt-2">Rp 4.500.000</h4>
+                                <span class="text-xs text-amber-400 mt-1 inline-block">Butuh persetujuan admin</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'multiserver') {
+                    title.innerText = 'Multi Server & Kelola Server';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-base font-bold text-white"><i class="fas fa-server text-beatles-cyan mr-2"></i> Daftar Server Aktif</h4>
+                                <button onclick="showToast('Server baru berhasil ditambahkan!')" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 text-xs px-4 py-2 rounded-xl font-bold transition">Tambah Server</button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="font-semibold text-sm text-white">Server SG-1 (Primary)</span>
+                                        <span class="px-2 py-0.5 bg-beatles-emerald/20 text-beatles-emerald text-[10px] rounded-full">Online</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400">IP: 103.25.12.90 | Load: 42%</p>
+                                </div>
+                                <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="font-semibold text-sm text-white">Server JKT-2 (Backup)</span>
+                                        <span class="px-2 py-0.5 bg-beatles-emerald/20 text-beatles-emerald text-[10px] rounded-full">Online</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400">IP: 180.250.88.12 | Load: 18%</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'stokdb') {
+                    title.innerText = 'Database & Template Settings (Admin Panel)';
+                    container.innerHTML = renderStokDBHTML();
+                } else if (currentTab === 'withdrawal') {
+                    title.innerText = 'ACC Withdrawal User';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl">
+                            <h4 class="text-base font-bold text-white mb-4"><i class="fas fa-wallet text-beatles-cyan mr-2"></i> Daftar Penarikan Dana Pending</h4>
+                            <div class="space-y-3">
+                                <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold text-xs text-white">Sanur Badarudin (ID: #USR-089)</p>
+                                        <p class="text-xs text-slate-400">BCA: 1234567890 — Rp 2.500.000</p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button onclick="showToast('Withdrawal disetujui!'); this.closest('div.bg-slate-800').remove();" class="bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 text-xs px-3 py-1.5 rounded-lg font-bold transition">ACC</button>
+                                        <button onclick="showToast('Withdrawal ditolak', 'error'); this.closest('div.bg-slate-800').remove();" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition">Tolak</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'users') {
+                    title.innerText = 'User Data Management';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl">
+                            <h4 class="text-base font-bold text-white mb-4"><i class="fas fa-users-gear text-beatles-cyan mr-2"></i> Kelola Data &amp; Kuota User</h4>
+                            <p class="text-xs text-slate-400">Kelola kuota blast, masa aktif, dan akses database khusus client.</p>
+                        </div>
+                    `;
+                } else if (currentTab === 'announcement') {
+                    title.innerText = 'Pengumuman Sistem';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl space-y-4">
+                            <h4 class="text-base font-bold text-white"><i class="fas fa-bullhorn text-beatles-cyan mr-2"></i> Siarkan Pengumuman</h4>
+                            <textarea class="w-full bg-slate-800/80 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-beatles-cyan h-28" placeholder="Tulis pengumuman resmi..."></textarea>
+                            <button onclick="showToast('Pengumuman berhasil disiarkan!')" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 text-xs px-4 py-2 rounded-xl font-bold transition">Kirim Pengumuman</button>
+                        </div>
+                    `;
+                } else if (currentTab === 'settings') {
+                    title.innerText = 'Global Settings';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl space-y-4">
+                            <h4 class="text-base font-bold text-white"><i class="fas fa-gear text-beatles-cyan mr-2"></i> Pengaturan Global Sistem</h4>
+                            <div class="flex items-center justify-between py-2 border-b border-slate-700">
+                                <span class="text-xs">Mode Maintenance Sistem</span>
+                                <input type="checkbox" class="accent-beatles-cyan">
+                            </div>
+                            <div class="flex items-center justify-between py-2">
+                                <span class="text-xs">Batasan Max Pairing WhatsApp</span>
+                                <input type="number" value="4" class="bg-slate-800 border border-slate-700 text-xs px-3 py-1.5 rounded-lg w-20 text-center text-white">
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                if (currentTab === 'dashboard') {
+                    title.innerText = 'Dashboard Klien (User)';
+                    container.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div class="glass-panel p-6 rounded-2xl space-y-3">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Status Koneksi WhatsApp</p>
+                                <h4 class="text-xl font-bold text-emerald-400 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span> Terhubung (Sesi Aktif)</h4>
+                                <p class="text-xs text-slate-400">Perangkat siap mengirimkan pesan otomatis berdasarkan database dan template yang ditentukan Admin/Boss.</p>
+                            </div>
+                            <div class="glass-panel p-6 rounded-2xl space-y-3">
+                                <p class="text-xs text-slate-400 uppercase font-semibold">Sisa Kuota Blasting</p>
+                                <h4 class="text-3xl font-black text-white">5,420 <span class="text-xs text-slate-400 font-normal">Pesan</span></h4>
+                                <p class="text-xs text-beatles-cyan">Paket Klien Premium Active</p>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'pairing') {
+                    title.innerText = 'Pairing WhatsApp (Maksimal 4x)';
+                    container.innerHTML = `
+                        <div class="glass-panel p-6 rounded-2xl space-y-6 max-w-2xl mx-auto text-center">
+                            <h4 class="text-lg font-bold text-white"><i class="fab fa-whatsapp text-emerald-400 mr-2"></i> Hubungkan Perangkat WhatsApp</h4>
+                            <p class="text-xs text-slate-400">Anda dapat melakukan pairing hingga maksimal 4 perangkat untuk kelancaran operasional pengiriman pesan.</p>
+                            <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl inline-block">
+                                <div class="w-48 h-48 bg-white rounded-xl mx-auto flex items-center justify-center text-slate-900 font-bold text-sm shadow-inner">
+                                    [ QR CODE PAIRING ]
+                                </div>
+                                <p class="text-[11px] text-slate-400 mt-4">Scan QR Code ini menggunakan WhatsApp di HP Anda.</p>
+                            </div>
+                            <div class="flex justify-center gap-4">
+                                <button onclick="showToast('Sesi pairing berhasil ditambahkan (Slot 1/4)')" class="bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 text-xs px-4 py-2.5 rounded-xl font-bold transition">Tambah Sesi Baru</button>
+                                <button onclick="showToast('Sesi di-reset', 'info')" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition">Reset Sesi</button>
+                            </div>
+                        </div>
+                    `;
+                } else if (currentTab === 'clientdb') {
+                    title.innerText = 'Database & Template Klien';
+                    container.innerHTML = renderStokDBHTML();
+                }
+            }
+        }
+
+        function renderStokDBHTML() {
+            return `
+                <div class="glass-panel p-6 rounded-2xl space-y-6">
+                    <div class="flex border-b border-slate-700 pb-4 gap-4">
+                        <button onclick="switchStokTab('db')" id="btn-stok-db" class="text-sm font-bold pb-2 border-b-2 border-beatles-cyan text-beatles-cyan transition">Database (DB)</button>
+                        <button onclick="switchStokTab('template')" id="btn-stok-template" class="text-sm font-semibold pb-2 border-b-2 border-transparent text-slate-400 hover:text-white transition">Template</button>
+                    </div>
+
+                    <!-- Tab Content: DB -->
+                    <div id="stok-content-db" class="space-y-6">
+                        <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-xl space-y-4">
+                            <h5 class="font-bold text-xs uppercase tracking-wider text-beatles-cyan"><i class="fas fa-file-arrow-up mr-2"></i> Input Database Kontak Target (TXT / Excel)</h5>
+                            <p class="text-xs text-slate-400">Unggah file teks (.txt) atau spreadsheet (.xlsx/.csv) berisi nomor penerima. Sistem akan otomatis menyaring dan mendeteksi total nomor valid.</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Nama Kategori Database</label>
+                                    <input type="text" id="db-input-name" placeholder="Misal: Klien VIP Surabaya" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-beatles-cyan">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Pilih File (.txt / .xlsx)</label>
+                                    <input type="file" id="db-file-upload" accept=".txt,.xlsx,.csv" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-xs text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-beatles-cyan file:text-beatles-900 hover:file:bg-cyan-400">
+                                </div>
+                            </div>
+
+                            <button onclick="handleUploadDB()" class="bg-beatles-cyan hover:bg-cyan-400 text-beatles-900 text-xs px-5 py-2.5 rounded-xl font-bold transition shadow-lg shadow-beatles-cyan/20"><i class="fas fa-upload mr-1.5"></i> Proses &amp; Deteksi Otomatis Kontak</button>
+                        </div>
+
+                        <!-- Database List Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="border-b border-slate-700 text-slate-400">
+                                    <tr>
+                                        <th class="pb-3">Nama Database</th>
+                                        <th class="pb-3">Nama File</th>
+                                        <th class="pb-3">Total Nomor Terdeteksi</th>
+                                        <th class="pb-3">Tanggal Input</th>
+                                        <th class="pb-3 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800" id="database-table-body">
+                                    ${databases.map(db => `
+                                        <tr data-id="${db.id}">
+                                            <td class="py-3 font-semibold text-white">${db.name}</td>
+                                            <td class="py-3 text-slate-400 font-mono">${db.filename}</td>
+                                            <td class="py-3"><span class="px-2 py-0.5 bg-beatles-cyan/20 text-beatles-cyan rounded-full font-bold">${db.count.toLocaleString()} Nomor</span></td>
+                                            <td class="py-3 text-slate-400">${db.date}</td>
+                                            <td class="py-3 text-right">
+                                                <button onclick="deleteDatabase(${db.id})" class="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Hapus Database"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Template -->
+                    <div id="stok-content-template" class="hidden space-y-6">
+                        <div class="bg-slate-800/80 border border-slate-700 p-5 rounded-xl space-y-4">
+                            <h5 class="font-bold text-xs uppercase tracking-wider text-beatles-cyan"><i class="fas fa-file-pen mr-2"></i> Tambah / Kelola Template Pesan</h5>
+                            <p class="text-xs text-slate-400">Format Template: Nama Template | Teks Pesan | URL / Link Web | Foto / Video (PNG/JPG/MP4)</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">Nama Template</label>
+                                    <input type="text" id="tpl-name" placeholder="Misal: Promo Akhir Tahun" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-beatles-cyan">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1">URL / Link Web</label>
+                                    <input type="text" id="tpl-url" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-beatles-cyan">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Teks Pesan (Mendukung Variabel {name})</label>
+                                <textarea id="tpl-text" placeholder="Tulis isi pesan di sini..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-beatles-cyan h-24"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">Media Lampiran (Foto PNG/JPG atau Video MP4)</label>
+                                <input type="file" id="tpl-media" accept=".png,.jpg,.jpeg,.mp4" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-xs text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-beatles-emerald file:text-beatles-900 hover:file:bg-emerald-400">
+                            </div>
+
+                            <button onclick="handleAddTemplate()" class="bg-beatles-emerald hover:bg-emerald-400 text-beatles-900 text-xs px-5 py-2.5 rounded-xl font-bold transition shadow-lg shadow-beatles-emerald/20"><i class="fas fa-plus mr-1.5"></i> Simpan Template Baru</button>
+                        </div>
+
+                        <!-- Template List Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="border-b border-slate-700 text-slate-400">
+                                    <tr>
+                                        <th class="pb-3">Nama Template</th>
+                                        <th class="pb-3">Teks Pesan</th>
+                                        <th class="pb-3">URL Web</th>
+                                        <th class="pb-3">Media</th>
+                                        <th class="pb-3 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800" id="template-table-body">
+                                    ${templates.map(tpl => `
+                                        <tr data-id="${tpl.id}">
+                                            <td class="py-3 font-semibold text-white">${tpl.name}</td>
+                                            <td class="py-3 text-slate-300 max-w-xs truncate">${tpl.text}</td>
+                                            <td class="py-3 text-beatles-cyan underline truncate max-w-[150px]"><a href="${tpl.url}" target="_blank">${tpl.url}</a></td>
+                                            <td class="py-3"><span class="px-2 py-0.5 bg-beatles-bronze/20 text-beatles-bronze rounded-full font-mono text-[10px]">${tpl.media}</span></td>
+                                            <td class="py-3 text-right">
+                                                <button onclick="deleteTemplate(${tpl.id})" class="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Hapus Template"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchStokTab(sub) {
+            const btnDb = document.getElementById('btn-stok-db');
+            const btnTpl = document.getElementById('btn-stok-template');
+            const contentDb = document.getElementById('stok-content-db');
+            const contentTpl = document.getElementById('stok-content-template');
+
+            if (sub === 'db') {
+                btnDb.className = 'text-sm font-bold pb-2 border-b-2 border-beatles-cyan text-beatles-cyan transition';
+                btnTpl.className = 'text-sm font-semibold pb-2 border-b-2 border-transparent text-slate-400 hover:text-white transition';
+                contentDb.classList.remove('hidden');
+                contentTpl.classList.add('hidden');
+            } else {
+                btnTpl.className = 'text-sm font-bold pb-2 border-b-2 border-beatles-cyan text-beatles-cyan transition';
+                btnDb.className = 'text-sm font-semibold pb-2 border-b-2 border-transparent text-slate-400 hover:text-white transition';
+                contentTpl.classList.remove('hidden');
+                contentDb.classList.add('hidden');
+            }
+        }
+
+        function handleUploadDB() {
+            const nameInput = document.getElementById('db-input-name');
+            const fileInput = document.getElementById('db-file-upload');
+            if (!nameInput.value || fileInput.files.length === 0) {
+                showToast('Mohon isi nama kategori database dan pilih file (.txt/.xlsx)!', 'error');
+                return;
+            }
+            
+            const randomCount = Math.floor(Math.random() * 1500) + 250;
+            const newDb = {
+                id: Date.now(),
+                name: nameInput.value,
+                count: randomCount,
+                date: new Date().toISOString().split('T')[0],
+                filename: fileInput.files[0].name
+            };
+            databases.push(newDb);
+            showToast(`Berhasil! Terdeteksi ${randomCount} nomor valid dari file ${newDb.filename}`);
+            nameInput.value = '';
+            fileInput.value = '';
+            renderContent();
+        }
+
+        function deleteDatabase(id) {
+            databases = databases.filter(d => d.id !== id);
+            showToast('Database kontak berhasil dihapus', 'info');
+            renderContent();
+        }
+
+        function handleAddTemplate() {
+            const name = document.getElementById('tpl-name').value;
+            const text = document.getElementById('tpl-text').value;
+            const url = document.getElementById('tpl-url').value;
+            const mediaFile = document.getElementById('tpl-media').files;
+
+            if (!name || !text) {
+                showToast('Nama template dan teks pesan wajib diisi!', 'error');
+                return;
+            }
+
+            const newTpl = {
+                id: Date.now(),
+                name: name,
+                text: text,
+                url: url || '#',
+                media: mediaFile.length > 0 ? mediaFile[0].name : 'tanpa_media.png',
+                mediaType: mediaFile.length > 0 && mediaFile[0].name.endsWith('.mp4') ? 'video' : 'image'
+            };
+            templates.push(newTpl);
+            showToast('Template pesan berhasil disimpan!');
+            document.getElementById('tpl-name').value = '';
+            document.getElementById('tpl-text').value = '';
+            document.getElementById('tpl-url').value = '';
+            document.getElementById('tpl-media').value = '';
+            renderContent();
+        }
+
+        function deleteTemplate(id) {
+            templates = templates.filter(t => t.id !== id);
+            showToast('Template berhasil dihapus', 'info');
+            renderContent();
+        }
+    </script>
 </body>
-    </html>
-    
+</html>
