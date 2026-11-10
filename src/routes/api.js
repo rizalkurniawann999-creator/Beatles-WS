@@ -46,9 +46,12 @@ const {
   clampString,
   sanitizeFilename,
   isAllowedUpload,
+  isContactFile,
   hasUnsafeKeys,
   setNoStore,
 } = require('../utils/helpers');
+
+const { parseContactFile } = require('../utils/contacts');
 
 const {
   LANGUAGES,
@@ -86,7 +89,7 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     if (!isAllowedUpload(file.originalname)) {
       const error = new Error(
-        'Tipe berkas tidak diizinkan. Gunakan .txt, .csv, .json, atau gambar.'
+        'Tipe berkas tidak diizinkan. Gunakan .txt, .csv, .xlsx, .json, gambar (png/jpg), atau video .mp4.'
       );
       error.code = 'UNSUPPORTED_FILE_TYPE';
       return cb(error);
@@ -119,10 +122,24 @@ function auth(req, res, next) {
 
   try {
     // Algoritma dipin ke HS256 agar token dengan alg lain (mis. "none") ditolak.
-    req.user = jwt.verify(match[1], jwtSecret, {
+    const payload = jwt.verify(match[1], jwtSecret, {
       issuer: 'beatles-ws',
       algorithms: ['HS256'],
     });
+
+    // Token yang masih berlaku tidak cukup: pastikan akunnya masih ada dan
+    // aktif. Tanpa ini, user yang dihapus/dinonaktifkan tetap bisa memakai
+    // token lamanya sampai kedaluwarsa (8 jam).
+    const store = readStore();
+    const user = store.users.find((u) => u.username === payload.username);
+
+    if (!user || user.active === false) {
+      return res.status(401).json({ ok: false, error: 'Akun tidak ditemukan atau dinonaktifkan.' });
+    }
+
+    // Pakai data user terbaru dari store agar perubahan role/status langsung
+    // berlaku, bukan nilai yang tertanam di token lama.
+    req.user = publicUser(user);
     setNoStore(res);
     return next();
   } catch {
@@ -200,6 +217,10 @@ router.post('/auth/login', (req, res) => {
     return res.status(401).json({ ok: false, error: 'Username atau password salah.' });
   }
 
+  if (user.active === false) {
+    return res.status(403).json({ ok: false, error: 'Akun dinonaktifkan. Hubungi admin.' });
+  }
+
   const token = jwt.sign(publicUser(user), jwtSecret, {
     expiresIn: '8h',
     issuer: 'beatles-ws',
@@ -247,6 +268,11 @@ router.post('/auth/register', (req, res) => {
     passwordHash: bcrypt.hashSync(password, 10),
     role: 'USER',
     name: name || username,
+    active: true,
+    quota: 0,
+    telegram: '',
+    referral: '',
+    pinHash: null,
   });
 
   saveStore(store);
@@ -292,86 +318,80 @@ router.get('/admin/databases', auth, allow('ADMIN', 'BOS'), (_req, res) => {
   res.json({ ok: true, databases: store.databases || [] });
 });
 
-router.post('/admin/databases', auth, allow('ADMIN'), upload.single('file'), (req, res) => {
-  try {
-    const name = clampString(req.body?.name || 'Kategori Baru', 80) || 'Kategori Baru';
-    const tariffPerMsg = Number(req.body?.tariffPerMsg || 150);
-    const mediaType = clampString(req.body?.mediaType || 'text', 20) || 'text';
+router.post('/admin/databases', auth, allow('ADMIN'), upload.single('file'), asyncHandler(async (req, res) => {
+  const name = clampString(req.body?.name || 'Kategori Baru', 80) || 'Kategori Baru';
+  const tariffPerMsg = Number(req.body?.tariffPerMsg || 150);
+  const mediaType = clampString(req.body?.mediaType || 'text', 20) || 'text';
 
-    // Template pesan Stok DB: "Nama | Teks | URL | Foto". Masing-masing bagian
-    // opsional kecuali teks. Foto boleh berupa URL atau path hasil unggahan.
-    const templateContent = clampString(req.body?.templateContent, 4000);
-    const templateName = clampString(req.body?.templateName, 80);
-    const mediaUrl = clampString(req.body?.mediaUrl, 2048);
-    const photoUrl = clampString(req.body?.photoUrl, 2048);
+  // Template pesan Stok DB: "Nama | Teks | URL | Foto". Masing-masing bagian
+  // opsional kecuali teks. Foto boleh berupa URL atau path hasil unggahan.
+  const templateContent = clampString(req.body?.templateContent, 4000);
+  const templateName = clampString(req.body?.templateName, 80);
+  const mediaUrl = clampString(req.body?.mediaUrl, 2048);
+  const photoUrl = clampString(req.body?.photoUrl, 2048);
 
-    let totalNumbers = 0;
-    let filePath = null;
-    const extracted = [];
+  let totalNumbers = 0;
+  let filePath = null;
+  let stats = { invalid: 0, duplicates: 0 };
+  const extracted = [];
 
-    if (req.file) {
-      filePath = req.file.path;
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const lines = fileContent.split(/\r?\n|,|\s+/);
-      const validNumbers = lines.map((n) => n.trim()).filter((n) => VALID_NUMBER.test(n));
-
-      for (const number of validNumbers) {
-        if (!extracted.includes(number)) extracted.push(number);
-      }
-
-      totalNumbers = extracted.length;
-    }
-
-    const store = readStore();
-    if (!store.databases) store.databases = [];
-
-    const newDb = {
-      id: `db_${Date.now()}`,
-      name,
-      totalNumbers,
-      filePath,
-      tariffPerMsg: Number.isFinite(tariffPerMsg) ? tariffPerMsg : 150,
-      mediaType,
-      templateName,
-      templateContent,
-      mediaUrl,
-      photoUrl,
-      createdAt: new Date().toISOString(),
-    };
-
-    store.databases.unshift(newDb);
-
-    // Nomor yang diekstrak sekaligus dimasukkan ke database kontak.
-    if (!store.contacts) store.contacts = [];
-
-    const existing = new Set(store.contacts.map((c) => c.phone));
-
-    for (const number of extracted) {
-      const phone = normalizeNumber(number);
-      if (existing.has(phone)) continue;
-      existing.add(phone);
-      store.contacts.push({
-        id: `ct_${crypto.randomUUID()}`,
-        phone,
-        name: '',
-        tag: name,
-        source: 'database-upload',
-        status: 'unknown',
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    saveStore(store);
-
-    return res.status(201).json({
-      ok: true,
-      database: newDb,
-      message: `Database dibuat dengan ${totalNumbers} nomor terekstrak dan ditambahkan ke kontak.`,
-    });
-  } catch (error) {
-    return handleError(res, error, 'Gagal mengupload dan memproses database.');
+  if (req.file) {
+    filePath = req.file.path;
+    const parsed = await parseContactFile(filePath, req.file.originalname);
+    extracted.push(...parsed.valid);
+    totalNumbers = parsed.total;
+    stats = { invalid: parsed.invalid, duplicates: parsed.duplicates };
   }
-});
+
+  const store = readStore();
+  if (!store.databases) store.databases = [];
+
+  const newDb = {
+    id: `db_${Date.now()}`,
+    name,
+    totalNumbers,
+    filePath,
+    originalFile: req.file ? req.file.originalname : null,
+    tariffPerMsg: Number.isFinite(tariffPerMsg) ? tariffPerMsg : 150,
+    mediaType,
+    templateName,
+    templateContent,
+    mediaUrl,
+    photoUrl,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.databases.unshift(newDb);
+
+  // Nomor yang diekstrak sekaligus dimasukkan ke database kontak.
+  if (!store.contacts) store.contacts = [];
+
+  const existing = new Set(store.contacts.map((c) => c.phone));
+
+  for (const number of extracted) {
+    const phone = normalizeNumber(number);
+    if (existing.has(phone)) continue;
+    existing.add(phone);
+    store.contacts.push({
+      id: `ct_${crypto.randomUUID()}`,
+      phone,
+      name: '',
+      tag: name,
+      source: 'database-upload',
+      status: 'unknown',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  saveStore(store);
+
+  return res.status(201).json({
+    ok: true,
+    database: newDb,
+    stats,
+    message: `Terdeteksi ${totalNumbers} nomor valid (${stats.duplicates} duplikat, ${stats.invalid} tidak valid dibuang).`,
+  });
+}));
 
 router.delete('/admin/databases/:id', auth, allow('ADMIN'), (req, res) => {
   const store = readStore();
@@ -432,11 +452,16 @@ router.get('/templates', auth, (req, res) => {
   res.json({ ok: true, templates });
 });
 
-router.post('/templates', auth, allow('ADMIN', 'BOS'), (req, res) => {
+router.post('/templates', auth, allow('ADMIN', 'BOS'), upload.single('media'), (req, res) => {
   const name = clampString(req.body?.name, 80);
   const content = clampString(req.body?.content, 4000);
-  const mediaUrl = clampString(req.body?.mediaUrl || req.body?.photoUrl, 2048);
+  const url = clampString(req.body?.url || req.body?.link, 2048);
+  // Media bisa berupa file unggahan (foto/video) atau URL eksternal.
+  const mediaUrl = req.file
+    ? `/uploads/${req.file.filename}`
+    : clampString(req.body?.mediaUrl || req.body?.photoUrl, 2048);
   const mediaType = clampString(req.body?.mediaType || 'image', 20).toLowerCase();
+  const databaseId = clampString(req.body?.databaseId, 80);
 
   if (!name || !content) {
     return res.status(400).json({ ok: false, error: 'Nama dan isi template wajib diisi.' });
@@ -449,8 +474,10 @@ router.post('/templates', auth, allow('ADMIN', 'BOS'), (req, res) => {
     id: `tpl_${Date.now()}`,
     name,
     content,
+    url: url || '',
     mediaUrl: mediaUrl || '',
     mediaType: ['image', 'video'].includes(mediaType) ? mediaType : 'image',
+    databaseId: databaseId || null,
     owner: req.user.username,
     active: true,
     createdAt: new Date().toISOString(),
@@ -488,6 +515,14 @@ router.patch('/templates/:id', auth, allow('ADMIN', 'BOS'), (req, res) => {
 
   if (req.body?.mediaUrl !== undefined || req.body?.photoUrl !== undefined) {
     item.mediaUrl = clampString(req.body.mediaUrl || req.body.photoUrl, 2048);
+  }
+
+  if (req.body?.url !== undefined || req.body?.link !== undefined) {
+    item.url = clampString(req.body.url || req.body.link, 2048);
+  }
+
+  if (req.body?.databaseId !== undefined) {
+    item.databaseId = clampString(req.body.databaseId, 80) || null;
   }
 
   if (req.body?.mediaType !== undefined) {
@@ -769,7 +804,8 @@ router.get('/messages', auth, (req, res) => {
   res.json({ ok: true, messages: messages.slice(0, 200) });
 });
 
-router.post('/send-message', auth, allow('ADMIN', 'BOS', 'USER'), async (req, res) => {
+// Anti-Blast: ADMIN & BOS dilarang mengirim/blast langsung (hanya USER).
+router.post('/send-message', auth, allow('USER'), async (req, res) => {
   const sessionId = resolveActiveSession(req.body?.sessionId);
   const phone = normalizeNumber(req.body?.phone || req.body?.to);
   const text = clampString(req.body?.message ?? req.body?.text ?? '', 8000);
@@ -885,7 +921,8 @@ function runBroadcast(job) {
   });
 }
 
-router.post('/broadcast', auth, allow('ADMIN', 'BOS', 'USER'), (req, res) => {
+// Anti-Blast: ADMIN & BOS dilarang mengirim/blast langsung (hanya USER).
+router.post('/broadcast', auth, allow('USER'), (req, res) => {
   const sessionId = resolveActiveSession(req.body?.sessionId);
   const text = clampString(req.body?.message ?? req.body?.text ?? '', 8000);
   const speed = String(req.body?.speed || 'safe').toLowerCase();
@@ -988,6 +1025,14 @@ router.get('/broadcast/:id', auth, (req, res) => {
 
     if (!stored) {
       return res.status(404).json({ ok: false, error: 'Broadcast tidak ditemukan.' });
+    }
+
+    // Job hilang dari memori (mis. server di-restart saat blast berjalan):
+    // tandai "interrupted" agar klien berhenti memantau selamanya.
+    if (stored.status === 'running') {
+      stored.status = 'interrupted';
+      stored.finishedAt = new Date().toISOString();
+      saveStore(store);
     }
 
     // USER hanya boleh melihat broadcast miliknya sendiri.
@@ -1138,6 +1183,72 @@ router.get('/users', auth, allow('ADMIN'), (_req, res) => {
   res.json({ ok: true, users: store.users.map(publicUser) });
 });
 
+// ADMIN mengelola data user: kuota blast, status aktif, nama, telegram, role.
+router.patch('/users/:username', auth, allow('ADMIN'), (req, res) => {
+  const store = readStore();
+  const user = store.users.find((u) => u.username === req.params.username);
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: 'User tidak ditemukan.' });
+  }
+
+  if (req.body?.name !== undefined) {
+    const name = clampString(req.body.name, 80);
+    if (name) user.name = name;
+  }
+
+  if (req.body?.quota !== undefined) {
+    const quota = Number(req.body.quota);
+    if (!Number.isFinite(quota) || quota < 0) {
+      return res.status(400).json({ ok: false, error: 'Kuota harus angka >= 0.' });
+    }
+    user.quota = Math.floor(quota);
+  }
+
+  if (req.body?.active !== undefined) {
+    user.active = Boolean(req.body.active);
+  }
+
+  if (req.body?.telegram !== undefined) {
+    user.telegram = clampString(req.body.telegram, 64);
+  }
+
+  if (req.body?.referral !== undefined) {
+    user.referral = clampString(req.body.referral, 64);
+  }
+
+  if (req.body?.role !== undefined) {
+    const role = String(req.body.role).toUpperCase();
+    if (['USER', 'ADMIN', 'BOS'].includes(role)) user.role = role;
+  }
+
+  user.updatedAt = new Date().toISOString();
+  saveStore(store);
+
+  return res.json({ ok: true, user: publicUser(user) });
+});
+
+// USER mengatur PIN penarikan (disimpan sebagai hash bcrypt).
+router.post('/users/me/pin', auth, allow('USER'), (req, res) => {
+  const pin = String(req.body?.pin || '').trim();
+
+  if (!/^\d{4,8}$/.test(pin)) {
+    return res.status(400).json({ ok: false, error: 'PIN harus 4-8 digit angka.' });
+  }
+
+  const store = readStore();
+  const user = store.users.find((u) => u.username === req.user.username);
+
+  if (!user) {
+    return res.status(404).json({ ok: false, error: 'User tidak ditemukan.' });
+  }
+
+  user.pinHash = bcrypt.hashSync(pin, 10);
+  saveStore(store);
+
+  return res.json({ ok: true, message: 'PIN penarikan berhasil disimpan.' });
+});
+
 // ---------- Admin: Monitoring Server ----------
 
 router.get('/admin/monitoring', auth, allow('ADMIN'), (_req, res) => {
@@ -1226,6 +1337,208 @@ router.get('/boss/audit', auth, allow('BOS', 'ADMIN'), (_req, res) => {
   events.sort((a, b) => String(b.at).localeCompare(String(a.at)));
 
   return res.json({ ok: true, events: events.slice(0, 100) });
+});
+
+// ---------- Statistics (BOS & ADMIN) ----------
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+// Menentukan kode negara dari awalan nomor (best-effort untuk statistik).
+function countryOf(phone) {
+  const digits = normalizeNumber(phone);
+  const prefixes = [
+    ['62', 'Indonesia (+62)'],
+    ['60', 'Malaysia (+60)'],
+    ['65', 'Singapore (+65)'],
+    ['66', 'Thailand (+66)'],
+    ['84', 'Vietnam (+84)'],
+    ['63', 'Filipina (+63)'],
+    ['91', 'India (+91)'],
+    ['1', 'Amerika/Kanada (+1)'],
+    ['44', 'Inggris (+44)'],
+  ];
+  for (const [prefix, label] of prefixes) {
+    if (digits.startsWith(prefix)) return label;
+  }
+  return 'Lainnya';
+}
+
+router.get('/statistics', auth, allow('BOS', 'ADMIN'), (_req, res) => {
+  const store = readStore();
+  const messages = store.messages || [];
+
+  const monthlyDelivery = {};
+  for (const label of MONTH_LABELS) monthlyDelivery[label] = 0;
+
+  const countryStats = {};
+  let sent = 0;
+  let failed = 0;
+
+  for (const msg of messages) {
+    const date = new Date(msg.createdAt || Date.now());
+    const label = MONTH_LABELS[date.getMonth()] || 'Jan';
+    monthlyDelivery[label] += 1;
+
+    const country = countryOf(msg.phone);
+    countryStats[country] = (countryStats[country] || 0) + 1;
+
+    if (msg.status === 'sent') sent += 1;
+    else if (msg.status) failed += 1;
+  }
+
+  return res.json({
+    ok: true,
+    totalSent: sent,
+    totalFailed: failed,
+    totalMessages: messages.length,
+    monthlyDelivery,
+    countryStats,
+    usersCount: store.users.length,
+    databasesCount: (store.databases || []).length,
+    templatesCount: (store.templates || []).length,
+  });
+});
+
+// ---------- Multi Server (ADMIN) ----------
+
+router.get('/servers', auth, allow('ADMIN', 'BOS'), (_req, res) => {
+  const store = readStore();
+  res.json({ ok: true, servers: store.servers || [] });
+});
+
+router.post('/servers', auth, allow('ADMIN'), (req, res) => {
+  const name = clampString(req.body?.name, 80);
+  const host = clampString(req.body?.host, 80);
+  const region = clampString(req.body?.region, 40);
+  const role = clampString(req.body?.role || 'worker', 20);
+
+  if (!name || !host) {
+    return res.status(400).json({ ok: false, error: 'Nama dan host server wajib diisi.' });
+  }
+
+  const store = readStore();
+  if (!store.servers) store.servers = [];
+
+  const item = {
+    id: `srv_${Date.now()}`,
+    name,
+    host,
+    region,
+    role: ['primary', 'backup', 'worker'].includes(role) ? role : 'worker',
+    status: 'online',
+    load: 0,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.servers.push(item);
+  saveStore(store);
+
+  return res.status(201).json({ ok: true, server: item });
+});
+
+router.patch('/servers/:id', auth, allow('ADMIN'), (req, res) => {
+  const store = readStore();
+  const server = (store.servers || []).find((s) => s.id === req.params.id);
+
+  if (!server) {
+    return res.status(404).json({ ok: false, error: 'Server tidak ditemukan.' });
+  }
+
+  if (req.body?.name !== undefined) server.name = clampString(req.body.name, 80) || server.name;
+  if (req.body?.host !== undefined) server.host = clampString(req.body.host, 80) || server.host;
+  if (req.body?.region !== undefined) server.region = clampString(req.body.region, 40);
+  if (req.body?.status !== undefined) {
+    const status = String(req.body.status).toLowerCase();
+    if (['online', 'offline', 'maintenance'].includes(status)) server.status = status;
+  }
+  if (req.body?.load !== undefined && Number.isFinite(Number(req.body.load))) {
+    server.load = Math.max(0, Math.min(100, Number(req.body.load)));
+  }
+
+  saveStore(store);
+  return res.json({ ok: true, server });
+});
+
+router.delete('/servers/:id', auth, allow('ADMIN'), (req, res) => {
+  const store = readStore();
+  const list = store.servers || [];
+  const index = list.findIndex((s) => s.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ ok: false, error: 'Server tidak ditemukan.' });
+  }
+
+  list.splice(index, 1);
+  saveStore(store);
+  return res.json({ ok: true, message: 'Server berhasil dihapus.' });
+});
+
+// ---------- Announcements (ADMIN broadcast; semua role membaca) ----------
+
+router.get('/announcements', auth, (_req, res) => {
+  const store = readStore();
+  res.json({ ok: true, announcements: store.announcements || [] });
+});
+
+router.post('/announcements', auth, allow('ADMIN'), (req, res) => {
+  const text = clampString(req.body?.message || req.body?.text, 2000);
+
+  if (!text) {
+    return res.status(400).json({ ok: false, error: 'Isi pengumuman wajib diisi.' });
+  }
+
+  const store = readStore();
+  if (!store.announcements) store.announcements = [];
+
+  const item = {
+    id: `ann_${Date.now()}`,
+    message: text,
+    author: req.user.username,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.announcements.unshift(item);
+  saveStore(store);
+
+  return res.status(201).json({ ok: true, announcement: item });
+});
+
+router.delete('/announcements/:id', auth, allow('ADMIN'), (req, res) => {
+  const store = readStore();
+  const list = store.announcements || [];
+  const index = list.findIndex((a) => a.id === req.params.id);
+
+  if (index === -1) {
+    return res.status(404).json({ ok: false, error: 'Pengumuman tidak ditemukan.' });
+  }
+
+  list.splice(index, 1);
+  saveStore(store);
+  return res.json({ ok: true, message: 'Pengumuman dihapus.' });
+});
+
+// ---------- Settings (ADMIN tulis; BOS baca) ----------
+
+router.get('/settings', auth, allow('ADMIN', 'BOS'), (_req, res) => {
+  const store = readStore();
+  res.json({ ok: true, settings: store.settings });
+});
+
+router.put('/settings', auth, allow('ADMIN'), (req, res) => {
+  const store = readStore();
+  if (!store.settings) store.settings = {};
+
+  if (req.body?.maintenance !== undefined) store.settings.maintenance = Boolean(req.body.maintenance);
+  if (req.body?.blockIndo !== undefined) store.settings.blockIndo = Boolean(req.body.blockIndo);
+  if (req.body?.blockShadowban !== undefined) store.settings.blockShadowban = Boolean(req.body.blockShadowban);
+  if (req.body?.referralEnabled !== undefined) store.settings.referralEnabled = Boolean(req.body.referralEnabled);
+  if (req.body?.maxPairing !== undefined) {
+    const max = Number(req.body.maxPairing);
+    if (Number.isFinite(max) && max >= 1 && max <= 20) store.settings.maxPairing = Math.floor(max);
+  }
+
+  saveStore(store);
+  return res.json({ ok: true, settings: store.settings });
 });
 
 // ---------- WhatsApp: QR connection ----------

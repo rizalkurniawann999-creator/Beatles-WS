@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Base URL backend API. Kosong = origin yang sama (server lokal menyajikan
+         frontend + API). Untuk frontend di Netlify, isi dengan URL publik backend,
+         mis. https://xxxx.serveousercontent.com (tanpa garis miring di akhir). -->
+    <meta name="beatles-api-base" content="">
     <title>Beatles-WS | Enterprise WhatsApp Management & Blasting Platform</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -520,14 +524,14 @@
                         <div class="glass-panel p-6 rounded-2xl">
                             <h4 class="text-base font-bold text-white mb-4"><i class="fas fa-wallet text-beatles-cyan mr-2"></i> Daftar Penarikan Dana Pending</h4>
                             <div class="space-y-3">
-                                <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex justify-between items-center">
+                                <div class="withdrawal-item bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex justify-between items-center">
                                     <div>
                                         <p class="font-semibold text-xs text-white">Sanur Badarudin (ID: #USR-089)</p>
                                         <p class="text-xs text-slate-400">BCA: 1234567890 — Rp 2.500.000</p>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button onclick="showToast('Withdrawal disetujui!'); this.closest('div.bg-slate-800').remove();" class="bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 text-xs px-3 py-1.5 rounded-lg font-bold transition">ACC</button>
-                                        <button onclick="showToast('Withdrawal ditolak', 'error'); this.closest('div.bg-slate-800').remove();" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition">Tolak</button>
+                                        <button onclick="showToast('Withdrawal disetujui!'); this.closest('.withdrawal-item').remove();" class="bg-beatles-emerald hover:bg-emerald-500 text-beatles-900 text-xs px-3 py-1.5 rounded-lg font-bold transition">ACC</button>
+                                        <button onclick="showToast('Withdrawal ditolak', 'error'); this.closest('.withdrawal-item').remove();" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold transition">Tolak</button>
                                     </div>
                                 </div>
                             </div>
@@ -809,5 +813,8 @@
             renderContent();
         }
     </script>
+
+    <!-- Lapisan integrasi frontend <-> backend (memuat setelah skrip inline). -->
+    <script src="app.js"></script>
 </body>
 </html>

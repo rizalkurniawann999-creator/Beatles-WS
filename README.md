@@ -53,16 +53,16 @@ Akun berikut otomatis dibuat saat server pertama kali dijalankan (lihat `src/rou
 ## 🔐 Pemisahan Hak Akses (Role)
 
 Setiap role memiliki halaman sendiri. Fitur administratif tidak pernah muncul di
-halaman USER, dan sebaliknya. Frontend (`public/app.js`) memetakan menu per role
-lewat `ROLE_NAV`, dan `loadContent()` menolak halaman yang tidak terdaftar untuk
-role tersebut. Backend menegakkan aturan yang sama lewat middleware `auth` +
-`allow(...)`.
+halaman USER, dan sebaliknya. Markup & menu per role dirender `public/index.html`;
+`public/app.js` adalah lapisan integrasi yang menyambungkan UI ke REST API dan
+menyegarkan isinya dari data server. Backend menegakkan aturan yang sama lewat
+middleware `auth` + `allow(...)`.
 
 | Role  | Halaman                                                                 |
 | ----- | ----------------------------------------------------------------------- |
-| USER  | Dashboard, WhatsApp Pengirim, Kendali Massal, Afiliasi Referral, Tarik Saldo |
-| ADMIN | Monitoring Server, Gateway WhatsApp, Manajemen User, Database Nomor, Unggah Database, Template Pesan, Persetujuan Withdraw, Pengaturan Sistem |
-| BOS   | Executive Analytics, Laporan Arus Kas, Audit Log Admin, Sistem Darurat  |
+| USER  | Dashboard Klien, Pairing WhatsApp (read-only), Database & Template Klien, Kirim Pesan / Blast |
+| ADMIN | Statistik User, Multi Server, Database & Template, ACC Withdrawal, User Management, Pengumuman, Settings |
+| BOS   | Dashboard Boss, Stok DB & Template, Logs Pengiriman                     |
 
 Catatan penting:
 
@@ -102,8 +102,8 @@ src/
     helpers.js              # Validasi nomor/sesi, sanitasi nama berkas, asyncHandler
     translate.js            # Terjemahan pesan (endpoint /api/translate)
 public/
-  index.html                # Frontend SPA (Tailwind CDN)
-  app.js                    # Logika dashboard (auth, CRUD, broadcast, polling)
+  index.html                # Frontend SPA: markup + render per role (Tailwind CDN)
+  app.js                    # Lapisan integrasi: auth JWT, data server, CRUD, broadcast
   assets/                   # Logo & video latar
 data/                       # Penyimpanan runtime (store.json, sesi WA)
 uploads/                    # Berkas database (.txt) yang diunggah ADMIN
@@ -182,10 +182,12 @@ Dengan `CORS_ORIGIN=https://beatles-ws.netlify.app`, browser mengizinkan
 `netlify.toml` dan arahkan ke URL backend. Frontend dan API lalu tampak satu
 origin (`https://beatles-ws.netlify.app/api/...`).
 
-> Catatan: `public/index.html` + `public/app.js` saat ini berjalan mandiri di
-> browser (tanpa panggilan `/api/*`), jadi keduanya tetap tampil walau backend
-> mati. Konfigurasi di atas menyiapkan jalur koneksi ketika integrasi API
-> diaktifkan.
+> Catatan: `public/app.js` menyambungkan `public/index.html` ke REST API. Bila
+> backend tidak dapat dijangkau, UI otomatis memakai data demo bawaan
+> `index.html` agar tetap tampil. Saat backend aktif, dashboard menampilkan data
+> nyata dan fitur kirim/blast memakai API. Isi `beatles-api-base` (di
+> `public/index.html`) dengan URL backend bila frontend dan API berada di origin
+> berbeda (mis. frontend di Netlify, API di VPS).
 
 ## 📡 Ringkasan API
 Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Authorization: Bearer <token>`.
@@ -203,16 +205,27 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | DELETE | `/api/contacts/:id`           | ADMIN, BOS |
 | POST   | `/api/contacts/import`        | ADMIN, BOS |
 | POST   | `/api/contacts/check`         | Login      |
-| POST   | `/api/send-message`           | Login      |
+| POST   | `/api/send-message`           | USER       |
 | GET    | `/api/messages`               | Login      |
-| POST   | `/api/broadcast`              | Login      |
+| POST   | `/api/broadcast`              | USER       |
 | GET    | `/api/broadcast/:id`          | Login      |
 | POST   | `/api/broadcast/:id/cancel`   | Login      |
+| POST   | `/api/boss/emergency-stop`    | ADMIN, BOS |
 | GET    | `/api/admin/databases`        | ADMIN, BOS |
 | POST   | `/api/admin/databases`        | ADMIN      |
 | DELETE | `/api/admin/databases/:id`    | ADMIN      |
 | GET    | `/api/settings/tariff`        | Login      |
 | PUT    | `/api/settings/tariff`        | ADMIN, BOS |
+| GET    | `/api/settings`               | ADMIN, BOS |
+| PUT    | `/api/settings`               | ADMIN      |
+| GET    | `/api/statistics`             | ADMIN, BOS |
+| GET    | `/api/servers`                | ADMIN, BOS |
+| POST   | `/api/servers`                | ADMIN      |
+| PATCH  | `/api/servers/:id`            | ADMIN      |
+| DELETE | `/api/servers/:id`            | ADMIN      |
+| GET    | `/api/announcements`          | Login      |
+| POST   | `/api/announcements`          | ADMIN      |
+| DELETE | `/api/announcements/:id`      | ADMIN      |
 | GET    | `/api/templates`              | Login      |
 | POST   | `/api/templates`              | ADMIN, BOS |
 | PATCH  | `/api/templates/:id`          | ADMIN, BOS |
@@ -221,10 +234,11 @@ Semua endpoint berada di bawah prefix `/api`. Autentikasi memakai header `Author
 | POST   | `/api/withdrawals`            | USER       |
 | PATCH  | `/api/withdrawals/:id/status` | ADMIN      |
 | GET    | `/api/users`                  | ADMIN      |
+| PATCH  | `/api/users/:username`        | ADMIN      |
+| POST   | `/api/users/me/pin`           | USER       |
 | GET    | `/api/admin/monitoring`       | ADMIN      |
 | GET    | `/api/boss/analytics`         | ADMIN, BOS |
 | GET    | `/api/boss/audit`             | ADMIN, BOS |
-| POST   | `/api/boss/emergency-stop`    | ADMIN, BOS |
 | GET    | `/api/whatsapp/connected`     | Login      |
 | POST   | `/api/whatsapp/connect`       | ADMIN, BOS |
 | POST   | `/api/whatsapp/pairing-code`  | ADMIN, BOS |

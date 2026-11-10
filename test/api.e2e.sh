@@ -91,6 +91,13 @@ expect_code "$(code "$BASE/api/admin/databases" -H "$(AUTH "$BOS_TOKEN")")" 200 
 expect_code "$(code "$BASE/api/boss/analytics" -H "$(AUTH "$BOS_TOKEN")")" 200 "BOS GET /boss/analytics"
 
 echo
+echo "== Anti-Blast: ADMIN & BOS DILARANG kirim/blast (hanya USER) =="
+for t in "$ADMIN_TOKEN" "$BOS_TOKEN"; do
+  expect_code "$(code -X POST "$BASE/api/send-message" -H "$(AUTH "$t")" -H 'Content-Type: application/json' -d '{"phone":"628111222333","message":"x"}')" 403 "send-message dilarang (role non-USER)"
+  expect_code "$(code -X POST "$BASE/api/broadcast" -H "$(AUTH "$t")" -H 'Content-Type: application/json' -d '{"phones":["628111222333"],"message":"x"}')" 403 "broadcast dilarang (role non-USER)"
+done
+
+echo
 echo "== Kepemilikan broadcast (USER tidak boleh lihat/batalkan milik orang lain) =="
 BC_ID="$(curl -s -X POST "$BASE/api/broadcast" -H "$(AUTH "$USER_A_TOKEN")" -H 'Content-Type: application/json' \
   -d '{"phones":["628111222333"],"message":"halo e2e","speed":"safe"}' | json_field broadcastId)"
@@ -105,6 +112,13 @@ echo
 echo "== Guard pairing =="
 expect_code "$(code -X POST "$BASE/api/whatsapp/pairing-code" -H "$(AUTH "$ADMIN_TOKEN")" -H 'Content-Type: application/json' -d '{}')" 400 "pairing tanpa nomor -> 400"
 expect_code "$(code -X POST "$BASE/api/whatsapp/pairing-code" -H "$(AUTH "$ADMIN_TOKEN")" -H 'Content-Type: application/json' -d '{"phoneNumber":"081"}')" 400 "pairing nomor tidak valid -> 400"
+
+echo
+echo "== Token user yang dihapus/dinonaktifkan harus ditolak (revalidasi auth) =="
+# ADMIN menonaktifkan USER B: token lama USER B tidak boleh lagi berlaku.
+code -X PATCH "$BASE/api/users/$USER_B" -H "$(AUTH "$ADMIN_TOKEN")" -H 'Content-Type: application/json' \
+  -d '{"active":false}' >/dev/null
+expect_code "$(code "$BASE/api/auth/me" -H "$(AUTH "$USER_B_TOKEN")")" 401 "token USER B setelah dinonaktifkan"
 
 echo
 echo "RESULT: pass=$PASS fail=$FAIL"

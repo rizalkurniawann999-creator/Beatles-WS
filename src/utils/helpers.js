@@ -19,12 +19,18 @@ const SAFE_UPLOAD_EXTENSIONS = new Set([
   '.txt',
   '.csv',
   '.json',
+  '.xlsx',
+  '.xls',
   '.jpg',
   '.jpeg',
   '.png',
   '.gif',
   '.webp',
+  '.mp4',
 ]);
+
+// Ekstensi berkas kontak target (database nomor) yang bisa diunggah.
+const CONTACT_FILE_EXTENSIONS = new Set(['.txt', '.csv', '.xlsx', '.xls']);
 
 // Batas ukuran teks yang diterima dari klien (mencegah payload raksasa).
 const LIMITS = {
@@ -86,6 +92,72 @@ function isAllowedUpload(originalName) {
   return SAFE_UPLOAD_EXTENSIONS.has(ext);
 }
 
+/** true bila file adalah berkas kontak target (.txt/.csv/.xlsx/.xls). */
+function isContactFile(originalName) {
+  const ext = path.extname(String(originalName || '')).toLowerCase();
+  return CONTACT_FILE_EXTENSIONS.has(ext);
+}
+
+/**
+ * Mengekstrak kandidat nomor telepon dari teks bebas (isi .txt/.csv atau sel
+ * spreadsheet). Diproses per baris agar beberapa nomor pada baris berbeda tidak
+ * tergabung; nomor yang dipisah spasi pada satu baris tetap dipecah kembali.
+ * Mengembalikan daftar nomor yang sudah dinormalkan (digit saja).
+ */
+function extractPhonesFromText(text) {
+  if (!text) return [];
+
+  const numbers = [];
+
+  const collect = (raw) => {
+    const digits = normalizePhone(raw);
+    if (!digits) return;
+    if (digits.length > 15) {
+      // Kemungkinan dua nomor berdampingan dipisah spasi — pecah per token.
+      for (const piece of String(raw).split(/\s+/)) {
+        const d = normalizePhone(piece);
+        if (d) numbers.push(d);
+      }
+    } else {
+      numbers.push(digits);
+    }
+  };
+
+  for (const line of String(text).split(/\r?\n/)) {
+    const matches = line.match(/\+?\d[\d ().\-]*\d|\+?\d/g) || [];
+    matches.forEach(collect);
+  }
+
+  return numbers;
+}
+
+/**
+ * Menyaring & merapikan daftar nomor mentah: validasi 8-15 digit, buang
+ * duplikat, dan kembalikan statistik ringkas.
+ */
+function refinePhoneList(rawNumbers) {
+  const valid = [];
+  const seen = new Set();
+  let invalid = 0;
+  let duplicates = 0;
+
+  for (const raw of rawNumbers) {
+    const digits = normalizePhone(raw);
+    if (!digits || digits.length < 8 || digits.length > 15) {
+      invalid += 1;
+      continue;
+    }
+    if (seen.has(digits)) {
+      duplicates += 1;
+      continue;
+    }
+    seen.add(digits);
+    valid.push(digits);
+  }
+
+  return { valid, total: valid.length, invalid, duplicates };
+}
+
 /**
  * Menolak key berbahaya pada objek JSON (prototype pollution).
  * Dipakai pada body request sebelum digabung ke objek lain.
@@ -103,7 +175,9 @@ function hasUnsafeKeys(value, depth = 0) {
   return false;
 }
 
-/** Menyetel header agar respons API tidak di-cache oleh proxy/browser. */
+/**
+ * Menyetel header agar respons API tidak di-cache oleh proxy/browser.
+ */
 function setNoStore(res) {
   res.set('Cache-Control', 'no-store');
   res.set('Pragma', 'no-cache');
@@ -112,6 +186,7 @@ function setNoStore(res) {
 module.exports = {
   VALID_NUMBER,
   SAFE_UPLOAD_EXTENSIONS,
+  CONTACT_FILE_EXTENSIONS,
   LIMITS,
   asyncHandler,
   normalizePhone,
@@ -120,6 +195,9 @@ module.exports = {
   isValidSessionId,
   sanitizeFilename,
   isAllowedUpload,
+  isContactFile,
+  extractPhonesFromText,
+  refinePhoneList,
   hasUnsafeKeys,
   setNoStore,
 };

@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "check": "node --check src/server.js && node --check src/store.js && node --check src/routes/api.js && node --check src/routes/whatsapp/client.js && node --check src/routes/whatsapp/pairing-limit.js && node --check src/utils/helpers.js && node --check src/utils/translate.js",
-    "test": "node test/pairing-limit.test.js && node test/helpers.test.js && node test/server-safety.test.js",
+    "check": "node --check src/server.js && node --check src/store.js && node --check src/routes/api.js && node --check src/routes/whatsapp/client.js && node --check src/routes/whatsapp/pairing-limit.js && node --check src/utils/helpers.js && node --check src/utils/translate.js && node --check src/utils/contacts.js",
+    "test": "node test/pairing-limit.test.js && node test/helpers.test.js && node test/media-source.test.js && node test/server-safety.test.js",
     "test:e2e": "bash test/api.e2e.sh"
   },
   "engines": {
@@ -19,6 +19,7 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",

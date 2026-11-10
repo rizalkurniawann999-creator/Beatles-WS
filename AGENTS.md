@@ -31,25 +31,37 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
 - `src/routes/api.js` — all REST endpoints. Auth via JWT Bearer (algorithm is
   pinned); RBAC via `auth` + `allow('ADMIN'|'BOS'|'USER')` middleware.
   `publicUser()` shapes the user object; role is uppercased in tokens.
+- `src/utils/contacts.js` — contact-file parser (`.txt`/`.csv` via
+  `extractPhonesFromText`, `.xlsx`/`.xls` via exceljs); `parseContactFile`
+  returns `{ valid, total, invalid, duplicates }`. Used by database upload.
 - `src/routes/whatsapp/client.js` — Baileys integration (QR, pairing, send).
   `sendMessage(sessionId, phone, text, media)` supports `{ mediaUrl, mediaType }`
-  (image/video with caption). Exports a session map; key helpers:
+  (image/video with caption). `mediaUrl` may be an absolute http(s) URL or a local
+  `/uploads/<name>` path — the latter is read into a Buffer by
+  `resolveMediaSource` (basename-only, so no path traversal) so sending does not
+  depend on the server reaching itself over the network. Key helpers:
   `createNewWhatsAppSession`, `findReusableCodeSession`, `getWhatsAppStatus`,
-  `listWhatsAppSessions`.
+  `listWhatsAppSessions`, `resolveMediaSource`.
 - `src/routes/whatsapp/pairing-limit.js` — pure module: 4 pairing attempts per
   number, then a 10-minute cooldown (429 + Retry-After). Resets on success.
-- `public/index.html` + `public/app.js` — self-contained static frontend
-  (dark Tailwind via CDN, Font Awesome, no build step). State lives in the
-  browser: login/register, language switch (id/en, `translations` +
-  `changeLanguage`), WhatsApp pairing capped at 4 attempts, and the ADMIN
-  "Stok DB" page with Database/Template sub-tabs (persisted in `localStorage`).
-  It runs standalone and makes no `/api/*` calls. **Do not modify without an
-  explicit request** — the user maintains these files directly.
+- `public/index.html` + `public/app.js` — static frontend (dark Tailwind via
+  CDN, Font Awesome, no build step). `index.html` holds the markup and view
+  logic (login/register, language switch, tabs, `renderSidebar`/`renderContent`).
+  `app.js` is the API integration layer: it defines `apiFetch`, session/token
+  handling (`beatles_token`), and **patches** the `index.html` globals
+  (`submitLogin`, `renderContent`, `renderSidebar`, `handleUploadDB`, …) so the
+  UI talks to the real REST API. It must load AFTER `index.html`'s inline
+  script (it is added via `<script src="app.js">` just before `</body>`).
+  When the backend is unreachable, `app.js` falls back to `index.html`'s
+  built-in demo data. **Do not modify `index.html` markup** without an explicit
+  request — the user maintains it directly; wire new behaviour from `app.js`.
 
 ## Conventions & gotchas
 
-- The frontend is standalone: it does not call the REST API. The Express API in
-  `src/routes/api.js` remains available for integrations and the e2e tests.
+- The frontend talks to the REST API through `public/app.js` (see above). When
+  the backend is unreachable it degrades to `index.html`'s built-in demo data.
+  The Express API in `src/routes/api.js` remains the single source of truth for
+  integrations and the e2e tests.
 - USER-facing data (broadcasts, messages, withdrawals, dashboard) is filtered
   by ownership; ADMIN/BOS see everything. Preserve this when adding endpoints.
 - Requests reject prototype-pollution payloads (`__proto__`/`constructor`/
@@ -83,14 +95,17 @@ dark Tailwind SPA in `public/` (vanilla JS, no build step). Data lives in
 
 ## Auth
 
-- Login/register limiter: 30 failed attempts per 15 min per IP
-  (`skipSuccessfulRequests: true`) — successful logins never consume quota, so
-  normal use cannot lock the account.
-- Frontend: a 401 only shows "sesi berakhir" when a session existed; the login
-  form is shown immediately and `restoreSession()` keeps the token on transient
-  network errors.
+- Login limiter: 20 attempts per 15 min per IP, counting ALL attempts (not just
+  failures) to blunt credential stuffing. Register limiter: 10/hour per IP.
+  Translate: 40/min. Do NOT re-add `skipSuccessfulRequests` to login.
+- `auth` middleware re-reads the store on every request: a token is rejected
+  (401) if the user was deleted or deactivated, and `req.user` always reflects
+  the latest role/status — not the values frozen into the token at login.
 - Tokens: HS256, issuer `beatles-ws`, 8h expiry. Frontend stores them under the
   `beatles_token` localStorage key.
+- Frontend `checkSession()`: when the backend is online it requires a valid
+  token; missing/expired token shows the login view (never an empty dashboard).
+  It falls back to `index.html`'s demo mode only when the backend is offline.
 
 ## Process safety
 

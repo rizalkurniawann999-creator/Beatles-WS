@@ -14,6 +14,9 @@ const {
   isValidSessionId,
   sanitizeFilename,
   isAllowedUpload,
+  isContactFile,
+  extractPhonesFromText,
+  refinePhoneList,
   hasUnsafeKeys,
   asyncHandler,
 } = require('../src/utils/helpers');
@@ -103,6 +106,30 @@ check('bahasa id/en didukung', () => {
   assert.ok(!isSupportedLang('zz'));
 });
 check('daftar bahasa berisi target utama', () => assert.ok(LANGUAGES.id && LANGUAGES.en));
+
+console.log('== parser kontak (TXT/CSV) ==');
+check('pisahkan nomor antar baris (tidak tergabung)', () => {
+  const raw = extractPhonesFromText('081234567890\n628111222333\n+62 812-9999-0000');
+  assert.deepStrictEqual(raw, ['081234567890', '628111222333', '6281299990000']);
+});
+check('pisahkan dua nomor dalam satu baris', () => {
+  const raw = extractPhonesFromText('081234567890 628111222333');
+  assert.deepStrictEqual(raw, ['081234567890', '628111222333']);
+});
+check('abaikan baris non-nomor', () => {
+  assert.deepStrictEqual(extractPhonesFromText('Nama,Nomor\nA,081200000001'), ['081200000001']);
+});
+check('refinePhoneList buang duplikat & invalid', () => {
+  const r = refinePhoneList(['081200000001', '081200000001', '123', 'abcdefgh']);
+  assert.strictEqual(r.total, 1);
+  assert.strictEqual(r.duplicates, 1);
+  assert.strictEqual(r.invalid, 2);
+});
+check('isContactFile menerima xlsx, menolak exe', () => {
+  assert.ok(isContactFile('kontak.xlsx'));
+  assert.ok(isContactFile('nomor.txt'));
+  assert.ok(!isContactFile('virus.exe'));
+});
 
 // Tampilkan ringkasan; tunggu asyncHandler selesai lewat setImmediate.
 setTimeout(() => {

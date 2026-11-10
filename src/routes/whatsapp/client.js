@@ -683,6 +683,48 @@ async function checkNumber(sessionId, phone) {
 }
 
 /**
+ * Mengubah `options.mediaUrl` menjadi sumber media yang bisa dipakai Baileys.
+ *
+ * URL absolut (http/https) dikirim apa adanya. Untuk berkas lokal hasil unggahan
+ * (`/uploads/<nama>`), isinya dibaca sebagai Buffer supaya pengiriman tidak
+ * bergantung pada server bisa menjangkau dirinya sendiri lewat jaringan — dan
+ * supaya relatif path tetap valid. Nama berkas divalidasi agar tidak bisa keluar
+ * dari folder uploads (path traversal).
+ */
+function resolveMediaSource(mediaUrl) {
+  const value = String(mediaUrl || '').trim();
+  if (!value) return null;
+
+  if (/^https?:\/\//i.test(value)) {
+    return { url: value };
+  }
+
+  if (value.startsWith('/uploads/')) {
+    const uploadsDir = path.join(__dirname, '..', '..', '..', 'uploads');
+    const name = path.basename(value.slice('/uploads/'.length));
+    const absolute = path.join(uploadsDir, name);
+
+    if (path.dirname(absolute) === uploadsDir && fs.existsSync(absolute)) {
+      return { buffer: fs.readFileSync(absolute) };
+    }
+  }
+
+  return { url: value };
+}
+
+function mediaPayload(mediaUrl, mediaType, text) {
+  const source = resolveMediaSource(mediaUrl);
+  if (!source) return null;
+
+  // Baileys menerima Buffer langsung, atau objek { url } untuk URL.
+  const content = source.buffer ? source.buffer : source;
+
+  return mediaType === 'video'
+    ? { video: content, caption: text }
+    : { image: content, caption: text };
+}
+
+/**
  * Mengirim satu pesan teks/media ke satu nomor.
  * Mengembalikan objek hasil yang kaya info untuk dashboard & log.
  */
@@ -727,10 +769,9 @@ async function sendMessage(sessionId = 'device-01', recipient, text, options = {
 
     let messagePayload = { text };
 
-    if (options.mediaUrl && options.mediaType === 'image') {
-      messagePayload = { image: { url: options.mediaUrl }, caption: text };
-    } else if (options.mediaUrl && options.mediaType === 'video') {
-      messagePayload = { video: { url: options.mediaUrl }, caption: text };
+    if (options.mediaUrl) {
+      messagePayload =
+        mediaPayload(options.mediaUrl, options.mediaType, text) || { text };
     }
 
     const sent = await session.socket.sendMessage(check.jid || jid, messagePayload);
@@ -867,4 +908,5 @@ module.exports = {
   disconnectWhatsApp,
   logoutWhatsApp,
   shutdownAllSessions,
+  resolveMediaSource,
 };
